@@ -83,7 +83,7 @@ def activate(target):
 def update(archive, digest, adopt_existing=False):
     if os.geteuid()!=0:raise ValueError('root_required')
     info,files=inspect_archive(archive,digest)
-    for directory in (ROOT, ROOT/'releases', SETTINGS.parent):
+    for directory in (ROOT, ROOT/'releases'):
         if directory.is_symlink() or directory.stat().st_uid != 0 or directory.stat().st_mode & 0o022:
             raise ValueError('unsafe_installation_directory')
     previous=(ROOT/'current').resolve(strict=True)
