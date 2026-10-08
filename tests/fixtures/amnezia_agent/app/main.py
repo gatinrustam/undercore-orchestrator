@@ -70,8 +70,10 @@ def create_app(token=None, transport=rpc, server_id=None):
             if 'operation' in payload or 'client_id' in payload:
                 raise Fault('invalid_request', 422)
             command = (LeaseCommand if operation == 'control_lease' else Command).model_validate({**payload, 'operation': operation, 'client_id': client_id})
+            if operation == 'connection' and server_id is None:
+                raise Fault('server_identity_unconfigured', 503)
             result = await run_in_threadpool(transport, command.model_dump())
-            if operation == 'health' and server_id is not None:
+            if operation in ('health', 'connection') and server_id is not None:
                 result = {**result, 'server_id': server_id}
             if operation in ('configuration', 'amnezia'):
                 return PlainTextResponse(result['configuration'])
@@ -102,6 +104,10 @@ def create_app(token=None, transport=rpc, server_id=None):
     @application.get('/v1/clients/{client_id}')
     async def get(client_id: str):
         return await invoke('get', client_id=client_id)
+
+    @application.get('/v1/clients/{client_id}/connection')
+    async def connection(client_id: str):
+        return await invoke('connection', client_id=client_id)
 
     @application.get('/v1/clients/{client_id}/configuration')
     async def configuration(client_id: str):

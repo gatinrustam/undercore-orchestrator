@@ -54,8 +54,14 @@ def pilot(tmp_path):
         response = node_client.request(
             request.method, request.url.path, content=request.content, headers=dict(request.headers)
         )
-        if state["identity"] and request.url.path == "/v1/health":
-            return httpx.Response(200, json={**response.json(), "server_id": state["identity"]})
+        if state["identity"] and (
+            request.url.path == "/v1/health" or request.url.path.endswith("/connection")
+        ):
+            return httpx.Response(
+                200,
+                json={**response.json(), "server_id": state["identity"]},
+                headers=dict(response.headers),
+            )
         if state["lose"] and request.method == "POST":
             state["lose"] = False
             raise httpx.ReadTimeout("synthetic lost response AFTER commit")

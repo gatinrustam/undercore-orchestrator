@@ -14,8 +14,8 @@ class AgentAPI:
         self.policy = policy or AgentPolicy()
         self.transport = transport
 
-    def request(self, node, method, path, payload=None, text=False):
-        if path != "/v1/health":
+    def request(self, node, method, path, payload=None, text=False, *, snapshot=False):
+        if path != "/v1/health" and not snapshot:
             self.verify(node)
         try:
             with httpx.Client(
@@ -47,9 +47,11 @@ class AgentAPI:
                         body.extend(chunk)
                         if len(body) > limit:
                             raise ValueError()
+                    if (text or snapshot) and "no-store" not in response.headers.get(
+                        "cache-control", ""
+                    ):
+                        raise ValueError()
                     if text:
-                        if "no-store" not in response.headers.get("cache-control", ""):
-                            raise ValueError()
                         return body.decode()
                     return json.loads(body)
         except OrchestratorError:
@@ -59,6 +61,10 @@ class AgentAPI:
 
     def verify(self, node):
         health = self.request(node, "GET", "/v1/health")
+        self.validate_identity(node, health)
+
+    @staticmethod
+    def validate_identity(node, health):
         if (
             not isinstance(health, dict)
             or health.get("server_id") != node.server_id
@@ -66,6 +72,22 @@ class AgentAPI:
             or health.get("protocol") != "amneziawg"
         ):
             raise OrchestratorError("node_identity_invalid", 503)
+
+    def connection(self, node, remote_id):
+        # The combined response authenticates the node itself. Only an absent route
+        # falls back to the legacy protocol (including its health verification).
+        try:
+            value = self.request(
+                node, "GET", "/v1/clients/" + remote_id + "/connection", snapshot=True
+            )
+        except OrchestratorError as error:
+            if error.code == "node_request_failed" and error.status == 404:
+                return None
+            raise
+        self.validate_identity(node, value)
+        if type(value.get("schema_version")) is not int or value["schema_version"] != 1:
+            raise OrchestratorError("node_response_invalid", 503)
+        return value
 
     def observe(self, node):
         started = time.time()

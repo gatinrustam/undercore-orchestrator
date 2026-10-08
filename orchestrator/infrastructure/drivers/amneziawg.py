@@ -3,7 +3,7 @@
 import re
 from orchestrator.domain.contracts import TransportConfiguration
 from orchestrator.domain.models import OrchestratorError
-from orchestrator.application.ports import DriverCapabilities
+from orchestrator.application.ports import DriverCapabilities, NodeConnection
 
 
 class AmneziaAgentDriver:
@@ -49,6 +49,34 @@ class AmneziaAgentDriver:
         ):
             raise OrchestratorError("node_response_invalid", 503)
         return body
+
+    def connection(self, node, remote_id, binding_key):
+        try:
+            snapshot = self.api.connection(node, remote_id)
+        except OrchestratorError as error:
+            if error.status == 410:
+                raise OrchestratorError("access_unavailable", 410) from None
+            raise
+        if snapshot is None:
+            client = self.get(node, remote_id)
+            if (
+                self.validate(client, external_id=binding_key, client_id=remote_id)["status"]
+                != "active"
+            ):
+                raise OrchestratorError("access_unavailable", 410)
+            return NodeConnection(client, self.configuration(node, remote_id))
+        body = snapshot.get("configuration")
+        if (
+            not isinstance(body, str)
+            or len(body.encode()) > 65536
+            or "[Interface]" not in body
+            or "[Peer]" not in body
+        ):
+            raise OrchestratorError("node_response_invalid", 503)
+        return NodeConnection(
+            self.validate(snapshot.get("client"), external_id=binding_key, client_id=remote_id),
+            TransportConfiguration(protocol="amneziawg", format="awg-quick", data=body),
+        )
 
     def configuration(self, node, remote_id):
         return TransportConfiguration(

@@ -105,16 +105,15 @@ class Connections:
 
         if NodeLeases(self.gateway).denied(row):
             raise OrchestratorError("access_unavailable", 410)
-        node = self.gateway.node(row, issuance=True)
-        value = self.gateway.client(connection_id)
-        descriptor = self.describe(row, value)
+        snapshot = self.gateway.connection(connection_id)
+        descriptor = self.describe(row, snapshot.client)
         if descriptor.state != "active" or datetime.fromisoformat(
             descriptor.expires_at.replace("Z", "+00:00")
         ) <= datetime.now(timezone.utc):
             raise OrchestratorError("access_unavailable", 410)
         # Reload binding after resolve() may have recovered a lost create response.
         row = self.gateway.store.get(client_id=connection_id)
-        configuration = self.gateway.drivers.for_node(node).configuration(node, row["remote_id"])
+        configuration = snapshot.configuration
         if configuration.protocol != row["protocol"] or not any(
             c.protocol == configuration.protocol
             and c.configuration_version == configuration.version

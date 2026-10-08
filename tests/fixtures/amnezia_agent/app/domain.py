@@ -44,7 +44,7 @@ def expiry(value):
 
 class Command(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
-    operation: str = Field(pattern=r'^(health|list|get|create|renew|enable|disable|configuration|amnezia|replace)$')
+    operation: str = Field(pattern=r'^(health|list|get|create|renew|enable|disable|configuration|connection|amnezia|replace)$')
     client_id: str | None = Field(default=None, pattern=r'^wgapi_[a-f0-9]{32}$')
     external_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9_-]{1,100}$')
     device_id: str = Field(default='account-v1', pattern=r'^account-v1$')
@@ -208,15 +208,19 @@ class Engine:
         else:
             row = self.get(cmd.client_id)
             client_id = row['client_id']
-            if cmd.operation in ('configuration', 'amnezia'):
+            if cmd.operation in ('configuration', 'connection', 'amnezia'):
                 if not self.control_lease.allowed():
                     raise Fault('control_lease_expired', 503)
                 if row['expires_at'] <= stamp(now()):
                     raise Fault('expired', 410)
                 if row['phase'] != 'ready' or not row['enabled']:
-                    raise Fault('configuration_unavailable')
+                    raise Fault('configuration_unavailable', 410 if cmd.operation == 'connection' else 409)
                 exporter = self.backend.amnezia if cmd.operation == 'amnezia' else self.backend.configuration
-                return {'configuration': exporter(row, self.store.unseal(row))}
+                configuration = exporter(row, self.store.unseal(row))
+                if cmd.operation == 'connection':
+                    return {'schema_version': 1, 'status': 'ok', 'protocol': 'amneziawg',
+                            'client': self.view(row, handshakes), 'configuration': configuration}
+                return {'configuration': configuration}
             if cmd.operation == 'get':
                 return self.view(row, handshakes)
             if cmd.operation in ('renew', 'replace'):

@@ -5,7 +5,7 @@ from orchestrator.domain.models import OrchestratorError
 from orchestrator.infrastructure.sqlite.locking import connection_lock
 from orchestrator.infrastructure.drivers.amneziawg import AmneziaAgentDriver
 from orchestrator.application.drivers import DriverRegistry
-from orchestrator.application.ports import NodeGrant
+from orchestrator.application.ports import NodeGrant, NodeConnection
 
 
 class AgentGateway:
@@ -176,6 +176,27 @@ class AgentGateway:
             if operation == "get"
             else driver.mutate(node, remote_id, operation, payload or {}),
         )
+
+    def connection(self, client_id):
+        """Read state and transport parameters under the same assignment lock."""
+        with connection_lock(self.store, client_id):
+            row = self.store.get(client_id=client_id)
+            if row is None:
+                raise OrchestratorError("not_found", 404)
+            self.require_settled(row)
+            node = self.node(row, issuance=True)
+            row = {**row, "remote_id": self.resolve(row)}
+            snapshot = None
+
+            def fetch():
+                nonlocal snapshot
+                snapshot = self.drivers.for_node(node).connection(
+                    node, row["remote_id"], row["binding_key"]
+                )
+                return snapshot.client
+
+            value = self.invoke(row, "configuration", fetch)
+            return NodeConnection(value, snapshot.configuration)
 
     def listing(self):
         result = []

@@ -41,7 +41,7 @@ def operation(scope):
     if len(parts) in (4, 5) and parts[:3] == ["", "v1", "clients"] and parts[3]:
         if len(parts) == 4 and method == "GET":
             return "get"
-        if len(parts) == 5 and ((method == "GET" and parts[4] in {"configuration", "amnezia"})
+        if len(parts) == 5 and ((method == "GET" and parts[4] in {"configuration", "connection", "amnezia"})
                               or (method == "POST" and parts[4] in {"renew", "replace", "enable", "disable"})):
             return parts[4]
     return "other"

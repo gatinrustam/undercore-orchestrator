@@ -22,6 +22,12 @@ class NodeGrant:
     expires_at: str
 
 
+@dataclass(frozen=True)
+class NodeConnection:
+    client: dict
+    configuration: TransportConfiguration
+
+
 class NodeDriver(Protocol):
     capabilities: DriverCapabilities
 
@@ -31,4 +37,5 @@ class NodeDriver(Protocol):
     def get(self, node: Node, remote_id: str) -> dict: ...
     def mutate(self, node: Node, remote_id: str, operation: str, payload: dict) -> dict: ...
     def configuration(self, node: Node, remote_id: str) -> TransportConfiguration: ...
+    def connection(self, node: Node, remote_id: str, binding_key: str) -> NodeConnection: ...
     def validate(self, data: dict, external_id=None, client_id=None) -> dict: ...

@@ -22,7 +22,7 @@ from orchestrator.domain.contracts import (
     TransportConfiguration,
 )
 from orchestrator.infrastructure.drivers.amneziawg import AmneziaAgentDriver
-from orchestrator.application.ports import DriverCapabilities
+from orchestrator.application.ports import DriverCapabilities, NodeConnection
 from orchestrator.application.drivers import DriverRegistry
 from orchestrator.domain.models import Node, Observation, OrchestratorError
 import time
@@ -253,6 +253,9 @@ class SyntheticTrustTunnelDriver:
             client_id is None or data["client_id"] == client_id
         )
         return data
+
+    def connection(self, node, remote_id, binding_key):
+        return NodeConnection(self.get(node, remote_id), self.configuration(node, remote_id))
 
     def configuration(self, node, remote_id):
         return TransportConfiguration(
