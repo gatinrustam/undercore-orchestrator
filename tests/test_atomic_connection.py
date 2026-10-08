@@ -49,7 +49,7 @@ def test_one_request_one_reconcile_and_repeat_preserves_revision(pilot, monkeypa
     assert private.encode() not in pilot[0].store.path.read_bytes()
 
 
-def test_old_agent_falls_back_to_verified_legacy_calls(pilot, monkeypatch):
+def test_absent_route_falls_back_to_verified_legacy_calls(pilot, monkeypatch):
     fetch, requests, reconciles = prepare(
         pilot, monkeypatch, lambda r, t: httpx.Response(404, json={"detail": "Not Found"})
     )
@@ -59,7 +59,7 @@ def test_old_agent_falls_back_to_verified_legacy_calls(pilot, monkeypatch):
     assert requests[-1].endswith("/configuration")
 
 
-@pytest.mark.parametrize("code", [401, 403, 409, 410, 422, 429, 500, 503])
+@pytest.mark.parametrize("code", [401, 403, 405, 409, 410, 422, 429, 500, 503])
 def test_no_fallback_for_access_or_node_errors(pilot, monkeypatch, code):
     fetch, requests, reconciles = prepare(
         pilot, monkeypatch, lambda r, t: httpx.Response(code, json={"detail": "do-not-log-this"})
@@ -108,3 +108,14 @@ def test_node_identity_change_blocks_new_path(pilot, monkeypatch):
     with pytest.raises(OrchestratorError, match="node_identity_invalid"):
         fetch()
     assert len(requests) == 1
+
+
+def test_real_legacy_http_router_405_falls_back_without_skipping_identity(pilot, monkeypatch):
+    fetch, requests, reconciles = prepare(pilot, monkeypatch)
+    pilot[2]["legacy"] = True
+    assert fetch().state == "active"
+    assert len(requests) == 5 and len(reconciles) == 4
+    assert requests[1] == requests[3] == "/v1/health"
+    pilot[2]["identity"] = "other-node"
+    with pytest.raises(OrchestratorError, match="node_identity_invalid"):
+        fetch()

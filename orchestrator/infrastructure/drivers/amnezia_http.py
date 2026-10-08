@@ -40,6 +40,14 @@ class AgentAPI:
                             if response.status_code in (404, 409, 410, 422)
                             else 503
                         )
+                        # The old agent's POST /clients/{id}/{operation} wildcard
+                        # makes an unknown GET export return 405 with Allow: POST.
+                        if (
+                            snapshot
+                            and response.status_code == 405
+                            and response.headers.get("allow") == "POST"
+                        ):
+                            status = 405
                         raise OrchestratorError("node_request_failed", status)
                     body = bytearray()
                     limit = 65536 if text else 4 * 1024 * 1024
@@ -81,7 +89,7 @@ class AgentAPI:
                 node, "GET", "/v1/clients/" + remote_id + "/connection", snapshot=True
             )
         except OrchestratorError as error:
-            if error.code == "node_request_failed" and error.status == 404:
+            if error.code == "node_request_failed" and error.status in (404, 405):
                 return None
             raise
         self.validate_identity(node, value)

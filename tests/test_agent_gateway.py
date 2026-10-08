@@ -46,12 +46,21 @@ def pilot(tmp_path):
     node_client = TestClient(
         create_app(token="n" * 40, transport=command, server_id="lab-identity")
     )
-    state = {"lose": False, "down": False, "identity": None}
+    # Real old HTTP routing: unknown GET matches the generic POST operation
+    # route and returns 405/Allow: POST, rather than FastAPI's plain 404.
+    legacy_app = create_app(token="n" * 40, transport=command, server_id="lab-identity")
+    legacy_app.router.routes = [
+        route
+        for route in legacy_app.router.routes
+        if getattr(route, "path", None) != "/v1/clients/{client_id}/connection"
+    ]
+    legacy_client = TestClient(legacy_app)
+    state = {"lose": False, "down": False, "identity": None, "legacy": False}
 
     def handle(request):
         if state["down"]:
             raise httpx.ConnectError("synthetic")
-        response = node_client.request(
+        response = (legacy_client if state["legacy"] else node_client).request(
             request.method, request.url.path, content=request.content, headers=dict(request.headers)
         )
         if state["identity"] and (
