@@ -1,0 +1,20 @@
+name: Orchestrator checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - run: python -m pip install -r requirements.lock
+      - run: python -m pytest -q
+      - run: python scripts/check_contracts.py
+      - run: python -m orchestrator --settings config/settings.example.json check-config --structure-only
+      - run: python scripts/build_release.py --ref "${{ github.sha }}"

@@ -1,0 +1,110 @@
+"""Protocol-neutral internal service. Laravel grants the slot; we route its access."""
+from datetime import datetime, timezone
+from .contracts import Connection, ConnectionConfiguration
+from .models import PilotError
+from .operation_lock import connection_lock
+
+
+class Connections:
+    def __init__(self, gateway):
+        self.gateway = gateway
+
+    def capabilities(self):
+        # Registry only contains implemented drivers; configuring TrustTunnel alone
+        # cannot advertise support. No credentials, origins or remote IDs in discovery.
+        return {'schema_version': 1, 'protocols': [
+            {'protocol': protocol, 'configuration_version': driver.capabilities.configuration_version,
+             'idempotent_create': driver.capabilities.idempotent_create,
+             'enforces_expiry': driver.capabilities.enforces_expiry,
+             'confirmed_revoke': driver.capabilities.confirmed_revoke}
+            for protocol, driver in sorted(self.gateway.drivers.drivers.items())
+            if any(n.protocol == protocol for n in self.gateway.nodes.values())]}
+
+    def create(self, request):
+        try:
+            future = datetime.fromisoformat(request.expires_at.replace('Z', '+00:00'))
+            if future.year > 2100 or future <= datetime.now(timezone.utc):
+                raise ValueError()
+        except ValueError:
+            raise PilotError('grant_expired', 410) from None
+        rows = self.gateway.store.for_device(request.device_id)
+        if rows:
+            # Lost response/relaunch/capability change must never provision a second
+            # access or move an uncertain assignment. Migration is a separate action.
+            compatible = [r for r in rows if self.gateway.drivers.compatible(r['protocol'], request.capabilities)]
+            if not compatible:
+                raise PilotError('client_upgrade_required', 409)
+            row = compatible[0]
+            protocol, external_id = row['protocol'], row['external_id']
+        else:
+            # Server policy, not client offer ordering: AWG remains preferred in this phase.
+            protocols = sorted({n.protocol for n in self.gateway.nodes.values() if n.mode == 'active'})
+            compatible = [p for p in protocols if self.gateway.drivers.compatible(p, request.capabilities)]
+            if not compatible:
+                raise PilotError('no_compatible_protocol', 422)
+            protocol = compatible[0]
+            # Only one initial binding. Future explicit failover can create another
+            # binding key while retaining the canonical device_id and single paid slot.
+            external_id = request.device_id
+        value = self.gateway.create({'external_id': external_id,
+                                     'name': request.name, 'expires_at': request.expires_at},
+                                    device_id=request.device_id, protocol=protocol)
+        row = self.gateway.store.get(client_id=value['client_id'])
+        return self.describe(row, value)
+
+    def owned(self, connection_id, device_id):
+        row = self.gateway.store.get(client_id=connection_id)
+        if row is None or row['device_id'] != device_id:
+            raise PilotError('not_found', 404)
+        return row
+
+    def describe(self, row, value):
+        try:
+            return Connection(connection_id=row['client_id'], device_id=row['device_id'],
+                              node_id=row['node_id'], protocol=row['protocol'],
+                              state=value['status'], expires_at=value['expires_at'])
+        except ValueError:
+            raise PilotError('node_response_invalid', 503) from None
+
+    def get(self, connection_id, device_id):
+        row = self.owned(connection_id, device_id)
+        return self.describe(row, self.gateway.client(connection_id))
+
+    def configuration(self, connection_id, request):
+        with connection_lock(self.gateway.store, connection_id):
+            return self.configuration_locked(connection_id, request)
+
+    def configuration_locked(self, connection_id, request):
+        row = self.owned(connection_id, request.device_id)
+        if not self.gateway.drivers.compatible(row['protocol'], request.capabilities):
+            raise PilotError('client_upgrade_required', 409)
+        node = self.gateway.node(row, issuance=True)
+        value = self.gateway.client(connection_id)
+        descriptor = self.describe(row, value)
+        if descriptor.state != 'active' or datetime.fromisoformat(descriptor.expires_at.replace('Z', '+00:00')) <= datetime.now(timezone.utc):
+            raise PilotError('access_unavailable', 410)
+        # Reload binding after resolve() may have recovered a lost create response.
+        row = self.gateway.store.get(client_id=connection_id)
+        configuration = self.gateway.drivers.for_node(node).configuration(node, row['remote_id'])
+        if configuration.protocol != row['protocol'] or not any(
+            c.protocol == configuration.protocol and c.configuration_version == configuration.version
+            for c in request.capabilities
+        ):
+            raise PilotError('node_response_invalid', 503)
+        revision = self.gateway.store.configuration_revision(row, configuration, descriptor.expires_at)
+        return ConnectionConfiguration(**descriptor.model_dump(), revision=revision, configuration=configuration)
+
+    def mutate(self, connection_id, device_id, operation, payload):
+        row = self.owned(connection_id, device_id)
+        # Legacy node APIs expect the binding's external identity, not the slot ID.
+        if operation == 'replace':
+            if payload['expected_external_id'] != device_id:
+                raise PilotError('not_found', 404)
+            payload = {**payload, 'expected_external_id': row['external_id']}
+        return self.describe(row, self.gateway.client(connection_id, operation, payload))
+
+    def switch(self, connection_id, request):
+        from .switches import Switches
+        with connection_lock(self.gateway.store, connection_id):
+            value = Switches(self.gateway).switch(connection_id, request)
+            return self.describe(self.gateway.store.get(client_id=connection_id), value)

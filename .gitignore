@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.env
+.env.*
+*.token
+*.key
+*.p8
+*.sqlite3*
+*.db*
+config/settings.json
+state/
+dist/
+*.egg-info/

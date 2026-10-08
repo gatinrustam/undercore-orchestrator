@@ -1,0 +1,442 @@
+{
+  "DeviceRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+      "Capability": {
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "configuration_version": {
+            "maximum": 65535,
+            "minimum": 1,
+            "title": "Configuration Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "protocol",
+          "configuration_version"
+        ],
+        "title": "Capability",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "capabilities": {
+        "items": {
+          "$ref": "#/$defs/Capability"
+        },
+        "maxItems": 8,
+        "minItems": 1,
+        "title": "Capabilities",
+        "type": "array"
+      },
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "name": {
+        "maxLength": 80,
+        "minLength": 1,
+        "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+        "title": "Name",
+        "type": "string"
+      },
+      "expires_at": {
+        "title": "Expires At",
+        "type": "string"
+      }
+    },
+    "required": [
+      "schema_version",
+      "capabilities",
+      "device_id",
+      "name",
+      "expires_at"
+    ],
+    "title": "DeviceRequest",
+    "type": "object"
+  },
+  "ConfigurationRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+      "Capability": {
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "configuration_version": {
+            "maximum": 65535,
+            "minimum": 1,
+            "title": "Configuration Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "protocol",
+          "configuration_version"
+        ],
+        "title": "Capability",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "capabilities": {
+        "items": {
+          "$ref": "#/$defs/Capability"
+        },
+        "maxItems": 8,
+        "minItems": 1,
+        "title": "Capabilities",
+        "type": "array"
+      },
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "schema_version",
+      "capabilities",
+      "device_id"
+    ],
+    "title": "ConfigurationRequest",
+    "type": "object"
+  },
+  "RecoveryRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+      "Capability": {
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "configuration_version": {
+            "maximum": 65535,
+            "minimum": 1,
+            "title": "Configuration Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "protocol",
+          "configuration_version"
+        ],
+        "title": "Capability",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "capabilities": {
+        "items": {
+          "$ref": "#/$defs/Capability"
+        },
+        "maxItems": 8,
+        "minItems": 1,
+        "title": "Capabilities",
+        "type": "array"
+      },
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "expected_revision": {
+        "maximum": 2147483647,
+        "minimum": 1,
+        "title": "Expected Revision",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "schema_version",
+      "capabilities",
+      "device_id",
+      "expected_revision"
+    ],
+    "title": "RecoveryRequest",
+    "type": "object"
+  },
+  "SwitchRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+      "Capability": {
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "configuration_version": {
+            "maximum": 65535,
+            "minimum": 1,
+            "title": "Configuration Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "protocol",
+          "configuration_version"
+        ],
+        "title": "Capability",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "capabilities": {
+        "items": {
+          "$ref": "#/$defs/Capability"
+        },
+        "maxItems": 8,
+        "minItems": 1,
+        "title": "Capabilities",
+        "type": "array"
+      },
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "expected_node_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Expected Node Id",
+        "type": "string"
+      },
+      "idempotency_key": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Idempotency Key",
+        "type": "string"
+      }
+    },
+    "required": [
+      "schema_version",
+      "capabilities",
+      "device_id",
+      "expected_node_id",
+      "idempotency_key"
+    ],
+    "title": "SwitchRequest",
+    "type": "object"
+  },
+  "Connection": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": 1,
+        "default": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "connection_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Connection Id",
+        "type": "string"
+      },
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "node_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "protocol": {
+        "enum": [
+          "amneziawg",
+          "trusttunnel"
+        ],
+        "title": "Protocol",
+        "type": "string"
+      },
+      "state": {
+        "enum": [
+          "pending",
+          "active",
+          "disabled",
+          "expired",
+          "conflict"
+        ],
+        "title": "State",
+        "type": "string"
+      },
+      "expires_at": {
+        "title": "Expires At",
+        "type": "string"
+      }
+    },
+    "required": [
+      "connection_id",
+      "device_id",
+      "node_id",
+      "protocol",
+      "state",
+      "expires_at"
+    ],
+    "title": "Connection",
+    "type": "object"
+  },
+  "ConnectionConfiguration": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+      "TransportConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "format": {
+            "enum": [
+              "awg-quick",
+              "trusttunnel-toml"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "data": {
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Data",
+            "type": "string"
+          }
+        },
+        "required": [
+          "protocol",
+          "format",
+          "data"
+        ],
+        "title": "TransportConfiguration",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": 1,
+        "default": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "connection_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Connection Id",
+        "type": "string"
+      },
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "node_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "protocol": {
+        "enum": [
+          "amneziawg",
+          "trusttunnel"
+        ],
+        "title": "Protocol",
+        "type": "string"
+      },
+      "state": {
+        "enum": [
+          "pending",
+          "active",
+          "disabled",
+          "expired",
+          "conflict"
+        ],
+        "title": "State",
+        "type": "string"
+      },
+      "expires_at": {
+        "title": "Expires At",
+        "type": "string"
+      },
+      "revision": {
+        "minimum": 1,
+        "title": "Revision",
+        "type": "integer"
+      },
+      "configuration": {
+        "$ref": "#/$defs/TransportConfiguration"
+      }
+    },
+    "required": [
+      "connection_id",
+      "device_id",
+      "node_id",
+      "protocol",
+      "state",
+      "expires_at",
+      "revision",
+      "configuration"
+    ],
+    "title": "ConnectionConfiguration",
+    "type": "object"
+  }
+}

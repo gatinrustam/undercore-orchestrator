@@ -1,0 +1,29 @@
+name: Publish release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.lock
+      - run: python -m pytest -q
+      - run: python scripts/check_contracts.py
+      - name: Check version and package exact commit
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          test "$TAG" = "v$(cat VERSION)"
+          python scripts/build_release.py --ref "${{ github.sha }}"
+      - name: Publish reviewed version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" dist/* --title "Undercore Orchestrator $TAG" --notes "Independent orchestrator release. See docs/internal/operations.md for the controlled update command and rollback policy."

@@ -1,0 +1,82 @@
+"""Internal-only v2 routes share the existing Bearer/no-store boundary."""
+import json
+import re
+from fastapi import Request
+from pydantic import ValidationError
+from .connections import Connections
+from .contracts import ConfigurationRequest, DeviceRequest, SwitchRequest, RecoveryRequest
+from .models import PilotError
+
+
+async def json_body(request):
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > 8192:
+            raise PilotError('request_too_large', 413)
+    try:
+        result = json.loads(data)
+        if not isinstance(result, dict):
+            raise ValueError()
+        return result
+    except (ValueError, UnicodeError):
+        raise PilotError('invalid_request', 422) from None
+
+
+async def decode(request, model):
+    try:
+        return model.model_validate(await json_body(request))
+    except ValidationError:
+        # Never return submitted credentials or Pydantic input excerpts.
+        raise PilotError('invalid_request', 422) from None
+
+
+def mount(app, gateway, validate_legacy_operation):
+    from starlette.concurrency import run_in_threadpool
+    service = Connections(gateway)
+
+    @app.get('/internal/v2/capabilities')
+    async def capabilities():
+        return service.capabilities()
+
+    @app.post('/internal/v2/connections')
+    async def create(request: Request):
+        value = await decode(request, DeviceRequest)
+        result = await run_in_threadpool(service.create, value)
+        return result.model_dump()
+
+    @app.get('/internal/v2/connections/{connection_id}')
+    async def get(connection_id: str, device_id: str):
+        result = await run_in_threadpool(service.get, connection_id, device_id)
+        return result.model_dump()
+
+    @app.post('/internal/v2/connections/{connection_id}/configuration')
+    async def configuration(connection_id: str, request: Request):
+        value = await decode(request, ConfigurationRequest)
+        result = await run_in_threadpool(service.configuration, connection_id, value)
+        return result.model_dump()
+
+    @app.post('/internal/v2/connections/{connection_id}/recover')
+    async def recover(connection_id: str, request: Request):
+        from .recovery import Recovery
+        value = await decode(request, RecoveryRequest)
+        result = await run_in_threadpool(Recovery(gateway).recover, connection_id, value)
+        return result.model_dump()
+
+    @app.post('/internal/v2/connections/{connection_id}/switch')
+    async def switch(connection_id: str, request: Request):
+        value = await decode(request, SwitchRequest)
+        result = await run_in_threadpool(service.switch, connection_id, value)
+        return result.model_dump()
+
+    @app.post('/internal/v2/connections/{connection_id}/{operation}')
+    async def mutate(connection_id: str, operation: str, request: Request):
+        if operation not in ('renew', 'replace', 'enable', 'disable'):
+            raise PilotError('not_found', 404)
+        data = await json_body(request)
+        device_id = data.pop('device_id', None)
+        if not isinstance(device_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', device_id):
+            raise PilotError('invalid_request', 422)
+        payload = validate_legacy_operation(operation, data)
+        result = await run_in_threadpool(service.mutate, connection_id, device_id, operation, payload)
+        return result.model_dump()

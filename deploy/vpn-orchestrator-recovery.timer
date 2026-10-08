@@ -1,0 +1,11 @@
+[Unit]
+Description=Reconcile pending VPN node switches
+
+[Timer]
+OnBootSec=30
+OnUnitInactiveSec=30
+AccuracySec=5
+Unit=vpn-orchestrator-recovery.service
+
+[Install]
+WantedBy=timers.target
