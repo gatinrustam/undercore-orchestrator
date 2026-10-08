@@ -34,6 +34,16 @@ def run(args, cwd=None):
 
 
 def install(archive, digest):
+    # Code must remain readable by the service user even under root umask 077.
+    # Credentials and state use explicit 0600/0700 modes independently.
+    previous_umask = os.umask(0o022)
+    try:
+        _install(archive, digest)
+    finally:
+        os.umask(previous_umask)
+
+
+def _install(archive, digest):
     if sys.platform != "linux" or os.geteuid() != 0:
         raise ValueError("Linux root installation required")
     info, files = inspect_archive(archive, digest)

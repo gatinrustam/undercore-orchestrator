@@ -59,7 +59,7 @@ TrustTunnel предусмотрен контрактом, но драйвер �
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.lock
+.venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pytest -q
 .venv/bin/python scripts/check_contracts.py
 .venv/bin/python -m orchestrator --settings config/settings.example.json check-config --structure-only

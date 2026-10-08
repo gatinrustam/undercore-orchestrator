@@ -290,3 +290,27 @@ def test_additive_upgrade_preserves_existing_journal_and_seeds_inventory(setting
     )
     with store.db() as db:
         assert db.execute("SELECT revision FROM node_registry").fetchone()[0] == 8
+
+
+def test_installer_restores_caller_umask_on_failure(monkeypatch):
+    import importlib.util
+    import os
+    import sys
+
+    monkeypatch.setitem(sys.modules, "update", update)
+    spec = importlib.util.spec_from_file_location("installer", "scripts/install.py")
+    installer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(installer)
+
+    def fail(archive, digest):
+        assert os.umask(0o022) == 0o022
+        raise ValueError("test failure")
+
+    monkeypatch.setattr(installer, "_install", fail)
+    previous = os.umask(0o077)
+    try:
+        with pytest.raises(ValueError, match="test failure"):
+            installer.install(None, None)
+        assert os.umask(0o077) == 0o077
+    finally:
+        os.umask(previous)
