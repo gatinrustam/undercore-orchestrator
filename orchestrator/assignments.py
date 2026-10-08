@@ -37,6 +37,8 @@ class Assignments:
             db.execute("CREATE UNIQUE INDEX IF NOT EXISTS one_pending_switch ON switches(client_id) WHERE state NOT IN ('complete', 'cancelled')")
             db.execute('CREATE UNIQUE INDEX IF NOT EXISTS assignments_device_protocol ON assignments(device_id, protocol)')
 
+        from .leases import initialize
+        initialize(self)
 
     @contextmanager
     def db(self):

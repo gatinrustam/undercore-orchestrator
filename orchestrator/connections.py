@@ -78,6 +78,8 @@ class Connections:
         row = self.owned(connection_id, request.device_id)
         if not self.gateway.drivers.compatible(row['protocol'], request.capabilities):
             raise PilotError('client_upgrade_required', 409)
+        from .leases import NodeLeases
+        if NodeLeases(self.gateway).denied(row): raise PilotError("access_unavailable",410)
         node = self.gateway.node(row, issuance=True)
         value = self.gateway.client(connection_id)
         descriptor = self.describe(row, value)

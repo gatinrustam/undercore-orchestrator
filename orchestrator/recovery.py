@@ -29,7 +29,15 @@ class Recovery:
             if saved and saved['state'] not in ('complete', 'cancelled'):
                 self.switches.resume(row, dict(saved))
             elif not saved:
-                current = self.connections.configuration_locked(client_id, request)
+                try:
+                    current = self.connections.configuration_locked(client_id, request)
+                except PilotError as error:
+                    if error.status != 503 or request.expected_revision != row['configuration_revision']: raise
+                    from .leases import NodeLeases
+                    # Only a lease-backed, previously verified grant can survive an outage.
+                    NodeLeases(self.gateway).cached_source(row)
+                    from types import SimpleNamespace
+                    current = SimpleNamespace(revision=row['configuration_revision'])
                 if request.expected_revision > current.revision:
                     raise PilotError('revision_conflict', 409)
                 if request.expected_revision < current.revision:

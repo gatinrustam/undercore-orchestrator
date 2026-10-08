@@ -1,0 +1,28 @@
+[Unit]
+Description=Renew bounded Undercore node permissions
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=vpn-orchestrator
+Group=vpn-orchestrator
+WorkingDirectory=/opt/vpn-orchestrator/current
+Environment=ORCHESTRATOR_SETTINGS=/etc/vpn-orchestrator/settings.json
+ExecStart=/opt/vpn-orchestrator/current/.venv/bin/python -m orchestrator.leases
+TimeoutStartSec=60
+TimeoutStopSec=5
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+LimitCORE=0
+ReadWritePaths=/var/lib/vpn-orchestrator
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

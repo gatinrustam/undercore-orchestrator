@@ -40,14 +40,17 @@ def validate(operation, payload):
     return payload
 
 
-def create_agent_app(service, token):
+def create_agent_app(service, token, admin_token=None):
     if not re.fullmatch(r'[A-Za-z0-9_-]{32,256}', token): raise ValueError('Invalid backend token')
+    if admin_token is not None and (not re.fullmatch(r'[A-Za-z0-9_-]{32,256}', admin_token) or secrets.compare_digest(admin_token, token)):
+        raise ValueError('A distinct admin token is required')
     app = FastAPI(title='Undercore VPN orchestration', docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.middleware('http')
     async def guard(request, call_next):
         values = request.headers.getlist('authorization')
-        if len(values) != 1 or not secrets.compare_digest(values[0].encode(), ('Bearer ' + token).encode()):
+        expected = admin_token if request.url.path.startswith('/internal/admin/') else token
+        if expected is None or len(values) != 1 or not secrets.compare_digest(values[0].encode(), ('Bearer ' + expected).encode()):
             response = JSONResponse({'detail': 'unauthorized'}, status_code=401)
         else:
             response = await call_next(request)
@@ -114,4 +117,6 @@ def create_agent_app(service, token):
 
     from .http_v2 import mount
     mount(app, service, validate)
+    from .admin_http import mount as mount_admin
+    mount_admin(app, service)
     return app

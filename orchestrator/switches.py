@@ -26,6 +26,7 @@ class Switches:
             row = self.store.get(client_id=client_id)
             if row is None or row['device_id'] != request.device_id:
                 raise PilotError('not_found', 404)
+            from .leases import NodeLeases
             if not self.gateway.drivers.compatible(row['protocol'], request.capabilities):
                 raise PilotError('client_upgrade_required', 409)
             with self.store.db() as db:
@@ -43,21 +44,31 @@ class Switches:
                         raise PilotError('switch_superseded', 409)
                     return self.gateway.client(client_id)
             else:
+                if NodeLeases(self.gateway).denied(row): raise PilotError('access_unavailable',410)
                 if self.pending(client_id):
                     raise PilotError('switch_in_progress', 409)
                 if row['node_id'] != request.expected_node_id:
                     raise PilotError('assigned_node_changed', 409)
-                source = self.gateway.client(client_id)
+                source_offline = False
+                try:
+                    source = self.gateway.client(client_id)
+                except PilotError as error:
+                    if error.status != 503: raise
+                    from .leases import NodeLeases
+                    source = NodeLeases(self.gateway).cached_source(row)
+                    source_offline = True
                 if source['status'] != 'active' or self.expired(source['expires_at']):
                     raise PilotError('access_unavailable', 410)
                 observations = []
                 for node in self.gateway.nodes.values():
-                    if node.id != row['node_id'] and node.protocol == row['protocol'] and node.mode == 'active':
+                    if node.id != row['node_id'] and node.protocol == row['protocol'] and self.gateway.available(node):
                         try:
                             observations.append(self.gateway.drivers.for_node(node).observe(node))
                         except PilotError:
                             pass
                 operation = self.reserve(row, request, source, observations)
+                if source_offline:
+                    NodeLeases(self.gateway).fence(self.gateway.node(row))
             return self.resume(row, operation)
 
     @staticmethod
@@ -89,20 +100,14 @@ class Switches:
         target = self.gateway.nodes.get(operation['target_node'])
         if target is None or target.server_id != operation['target_server'] or target.protocol != row['protocol']:
             raise PilotError('assigned_node_identity_changed', 503)
-        if target.mode != 'active' and not operation['disable_requested']:
+        if not self.gateway.available(target) and not operation['disable_requested']:
             raise PilotError('target_node_unavailable', 503)
         # Never grant an expired access, even when recovering a prior request.
         if self.expired(operation['expires_at']):
             self.cancel_expired(row, operation, target)
             raise PilotError('grant_expired', 410)
         if operation['state'] == 'reserved':
-            source = self.gateway.node(row)
-            driver = self.gateway.drivers.for_node(source)
-            remote_id = self.gateway.resolve(row)
-            value = driver.validate(driver.mutate(source, remote_id, 'disable', {}),
-                                    external_id=row['binding_key'], client_id=remote_id)
-            if value['status'] != 'disabled':
-                raise PilotError('revoke_unconfirmed', 503)
+            self.revoke_source(row)
             with self.store.db() as db:
                 db.execute("UPDATE switches SET state='source_revoked' WHERE client_id=? AND operation_id=?",
                            (row['client_id'], operation['operation_id']))
@@ -125,7 +130,25 @@ class Switches:
                        (target.id, target.server_id, value['client_id'], grant.binding_key, time.time(), row['client_id']))
             db.execute("UPDATE switches SET state='complete' WHERE client_id=? AND operation_id=?",
                        (row['client_id'], operation['operation_id']))
+        from .leases import NodeLeases
+        NodeLeases(self.gateway).remember(self.store.get(client_id=row['client_id']), value)
         return {**value, 'client_id': row['client_id'], 'external_id': row['external_id']}
+
+    def revoke_source(self, row):
+        source = self.gateway.node(row)
+        driver = self.gateway.drivers.for_node(source)
+        try:
+            remote_id = self.gateway.resolve(row)
+            value = driver.validate(driver.mutate(source, remote_id, 'disable', {}),
+                                    external_id=row['binding_key'], client_id=remote_id)
+            if value['status'] not in ('disabled', 'expired'):
+                raise PilotError('revoke_unconfirmed', 503)
+        except PilotError as error:
+            if error.status != 503: raise
+            from .leases import NodeLeases
+            leases = NodeLeases(self.gateway)
+            leases.fence(source)
+            leases.retire(row)
 
     def disable_pending(self, row, operation):
         # Persist revocation intent BEFORE recovery; a restart must not publish an
@@ -142,13 +165,7 @@ class Switches:
     def cancel_expired(self, row, operation, target):
         # Node agents independently enforce expiry. Still confirm both sides before
         # releasing the pending operation; no new peer can be created at this point.
-        source = self.gateway.node(row)
-        driver = self.gateway.drivers.for_node(source)
-        remote_id = self.gateway.resolve(row)
-        value = driver.validate(driver.mutate(source, remote_id, 'disable', {}),
-                                external_id=row['binding_key'], client_id=remote_id)
-        if value['status'] not in ('disabled', 'expired'):
-            raise PilotError('revoke_unconfirmed', 503)
+        self.revoke_source(row)
         driver = self.gateway.drivers.for_node(target)
         matches = [v for v in driver.list(target) if v['external_id'] == operation['binding_key']]
         if len(matches) > 1:

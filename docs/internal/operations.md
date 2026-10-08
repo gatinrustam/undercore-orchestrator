@@ -6,7 +6,7 @@
 |---|---|
 | `/opt/vpn-orchestrator/releases/vVERSION-COMMIT/` | Неизменяемый релиз со своей `.venv` |
 | `/opt/vpn-orchestrator/current` | Символическая ссылка на рабочий релиз |
-| `/etc/vpn-orchestrator/settings.json` | Настройки узлов, не из Git |
+| `/etc/vpn-orchestrator/settings.json` | Начальные настройки узлов, не из Git |
 | `/etc/vpn-orchestrator/*.token` | Отдельные ключи, права 0600 |
 | `/var/lib/vpn-orchestrator/assignments.sqlite3` | Журнал назначений и переключений |
 | `/var/backups/undercore-orchestrator-COMMIT/` | Приватный снимок перед обновлением |
@@ -66,9 +66,9 @@ CLI не проверяет оплату: это инструмент довер
 
 Выполнить `python -m orchestrator check-config --probe` из каталога релиза от
 пользователя сервиса с `ORCHESTRATOR_SETTINGS=/etc/vpn-orchestrator/settings.json`.
-Создать `current`, установить три unit-файла из `deploy`, wrapper `orchestratorctl`
+Создать `current`, установить пять unit-файлов из `deploy`, wrapper `orchestratorctl`
 в `/usr/local/bin` (0755), выполнить `systemctl daemon-reload` и
-`systemctl enable --now vpn-orchestrator.service vpn-orchestrator-recovery.timer`.
+`systemctl enable --now vpn-orchestrator.service vpn-orchestrator-recovery.timer vpn-orchestrator-leases.timer`.
 При первом запуске создаётся пустой журнал. Настроить доступ backend через локальную
 сеть/reverse proxy с HTTPS и ограничением источников, затем проверить health и nodes.
 Автоматизированный updater ниже предназначен для уже установленного сервиса.
@@ -97,8 +97,9 @@ SQLite не заменяются; сайты и VPN-агенты не перез
 
 При ошибке после переключения возвращаются старые код/units и запуск сервиса.
 Живой журнал **не откатывается**: он может содержать уже выполненные операции.
-Если новая версия меняет схему/данные при инициализации, updater её отклонит до
-остановки текущего сервиса; нужна отдельная миграционная процедура.
+Версия 0.2 добавляет таблицы leases/cache/retired bindings, не изменяя существующие
+назначения и переключения. Иные изменения этих данных/схем отклоняются на копии.
+После включения leases допустим только lease-aware rollback; см. [границы](node-leases.md).
 
 `SIGTERM`/разрыв SSH обрабатываются для попытки отката; сбой питания или `SIGKILL`
 невозможно гарантированно обработать. Тогда оператор сверяет `current`, units,
@@ -124,3 +125,30 @@ Access log приложения выключен. Не включать отла
 тел конфигурационных ответов в прокси/HTTP-клиентах. Текущий updater рассчитан на
 один экземпляр оркестратора и локальную SQLite; несколько активных копий с разными
 журналами нельзя запускать как балансируемые реплики.
+
+
+## Реестр из админки
+
+После первого запуска 0.2 определения nodes копируются из settings.json в
+node_registry (SQLite). Далее API/CLI обновляют этот реестр; редактирование списка
+nodes в JSON его не перезаписывает. Файлы исходных ключей сохранять: bootstrap
+настройки также проверяются при старте. `check-config --probe` проверяет текущий
+реестр, включая узлы, добавленные через API.
+
+Для управления задать `admin_token_file` — отдельный ключ 0600, не backend-token.
+Laravel хранит его в `VPN_ORCHESTRATOR_ADMIN_TOKEN`, только на сервере. Ограничить
+`/internal/admin/` в proxy теми же доверенными источниками, что backend API.
+Включение адреса в реестр означает доверие оператора к HTTPS-агенту на этом адресе.
+
+```sh
+sudo orchestratorctl node list
+sudo orchestratorctl node probe NODE_ID
+sudo orchestratorctl node save --file /root/node-change.json
+sudo orchestratorctl node restore NODE_ID
+```
+
+Файл для save должен иметь права 0600, содержит тело из описания API. Не помещать
+ключ в аргументы командной строки. Restore — мутация, очищает старые доступы.
+Backup обязан включать `/var/lib/vpn-orchestrator/node-secrets/`, весь журнал,
+`/etc/vpn-orchestrator/` и пять systemd units. Этот каталог содержит новые и
+прежние ключи ротации; не удалять их без сверки действующего реестра и копий.

@@ -4,10 +4,11 @@
   "purpose": "Test-only real state machine, no Docker/network execution",
   "sha256": {
     "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "app/domain.py": "ec3e19a0e905f320ecf70f73c47d9fdbe8679538034d94c6f2cdca4abf8feea1",
-    "app/main.py": "c6cd303082f69932f99e24324df060dd9abb3ca67fbf784c1dd02d3994cae090",
+    "app/domain.py": "176dbb8d79449706b7571ee84c4569bdfbb9dbc1e8f4fbfa986464b6d1025040",
+    "app/main.py": "ed7231a75cfbfa2dde11f392096a6c624d7558b93d616ad5da68168c6107af4c",
     "app/diagnostics.py": "2340178fd87030bf33458d98e496c177c1e32544d09846fb82eeb8ea41efc4d8",
     "app/backend.py": "8800b39ab381fe446cab4c603aa5c7e5587dc58e330e7aeb632e28d81972056f",
-    "app/export.py": "8d0f24f846620e6aaf591c47b37d6c6b9597453f20096353d530a8a375b3fd78"
+    "app/export.py": "8d0f24f846620e6aaf591c47b37d6c6b9597453f20096353d530a8a375b3fd78",
+    "app/control_lease.py": "463077e2ae25aae12dd55733d14af06e88411e3b3ae013996693a4cfbcd90c9a"
   }
 }

@@ -17,7 +17,7 @@ def main():
             if path.endswith(('.token','.key','.db','.sqlite3')) or path=='config/settings.json': raise ValueError('Runtime file in release')
             files[path]=git('show',commit+':'+path)
     version=files['VERSION'].decode().strip();assert re.fullmatch(r'\d+\.\d+\.\d+',version)
-    metadata={'version':version,'commit':commit,'journal_schema':1,'files':{k:hashlib.sha256(v).hexdigest() for k,v in files.items()}}
+    metadata={'version':version,'commit':commit,'journal_schema':2,'files':{k:hashlib.sha256(v).hexdigest() for k,v in files.items()}}
     files['release.json']=(json.dumps(metadata,indent=2)+'\n').encode()
     a.output.mkdir(parents=True,exist_ok=True)
     name='undercore-orchestrator-v'+version+'.tar.gz';target=a.output/name

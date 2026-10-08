@@ -16,7 +16,7 @@ def safe_response(value):
     if not isinstance(value, dict): return value
     allowed = {'status', 'service', 'version', 'contract_version', 'nodes', 'id', 'node_id',
                'region', 'mode', 'protocol', 'assigned', 'pending', 'capacity',
-               'schema_version', 'connection_id', 'device_id', 'state', 'expires_at', 'revision'}
+               'lease_enabled', 'lease_verified', 'fenced', 'api_url', 'server_id', 'schema_version', 'connection_id', 'device_id', 'state', 'expires_at', 'revision'}
     return {k: safe_response(v) for k, v in value.items() if k in allowed}
 
 
@@ -49,6 +49,11 @@ def parser():
     check = sub.add_parser('check-config');check.add_argument('--structure-only', action='store_true');check.add_argument('--probe', action='store_true')
     serve = sub.add_parser('serve');serve.add_argument('--host', default='127.0.0.1');serve.add_argument('--port', type=int, default=8792)
     for name in ('health', 'nodes', 'reconcile'): sub.add_parser(name)
+    node = sub.add_parser('node').add_subparsers(dest='node_operation', required=True)
+    node.add_parser('list')
+    save = node.add_parser('save');save.add_argument('--file', required=True)
+    for action in ('probe','restore'):
+        node.add_parser(action).add_argument('node_id', type=identifier)
     connection = sub.add_parser('connection').add_subparsers(dest='operation', required=True)
     for name in ('create', 'show', 'renew', 'disable', 'enable', 'recover'):
         op = connection.add_parser(name)
@@ -65,10 +70,8 @@ def run(args):
     os.environ['ORCHESTRATOR_SETTINGS'] = args.settings
     if args.command == 'check-config':
         settings = load_settings(args.settings, secrets=not args.structure_only)
-        if args.probe:
-            if args.structure_only: raise ValueError('Probe requires credentials')
-            from .node_agent import AgentAPI
-            for node in settings.validate_nodes(): AgentAPI().verify(node)
+        if args.probe and args.structure_only: raise ValueError('Probe requires credentials')
+        nodes = {n.id: n for n in settings.nodes}
         # Check pinned assignments without opening a writer or initializing a journal.
         if not args.structure_only:
             import sqlite3
@@ -77,13 +80,21 @@ def run(args):
             if journal.exists():
                 nodes = {n.id: n for n in settings.nodes}
                 with sqlite3.connect(journal.as_uri()+'?mode=ro', uri=True) as db:
+                    if db.execute("SELECT 1 FROM sqlite_master WHERE name='node_registry'").fetchone():
+                        from .settings import NodeSettings
+                        saved = [NodeSettings.model_validate_json(r[0]) for r in db.execute('SELECT configuration FROM node_registry')]
+                        nodes = {n.id:n for n in saved}
+                        for n in saved:n.node()
                     for node_id, server_id, protocol in db.execute('SELECT node_id,server_id,protocol FROM assignments'):
                         if node_id not in nodes or (nodes[node_id].server_id,nodes[node_id].protocol) != (server_id,protocol):
                             raise ValueError('Configuration removes or changes a pinned node')
                     for node_id, server_id in db.execute("SELECT target_node,target_server FROM switches WHERE state NOT IN ('complete','cancelled')"):
                         if node_id not in nodes or nodes[node_id].server_id != server_id:
                             raise ValueError('Configuration removes or changes a pending target')
-        return {'valid': True, 'nodes': len(settings.nodes), 'secrets_checked': not args.structure_only}
+        if args.probe:
+            from .node_agent import AgentAPI
+            for node in nodes.values(): AgentAPI().verify(node.node())
+        return {'valid': True, 'nodes': len(nodes), 'secrets_checked': not args.structure_only}
     if args.command == 'serve':
         load_settings(args.settings)
         import uvicorn
@@ -95,6 +106,16 @@ def run(args):
         service, _ = agent_service()
         return reconcile(service)
     settings = load_settings(args.settings)
+    if args.command == 'node':
+        if not settings.admin_token_file: raise ValueError('Admin credential not configured')
+        token = read_secret(settings.admin_token_file).decode()
+        base = '/internal/admin/nodes'
+        if args.node_operation == 'list': return request(args.url, token, 'GET', base)
+        if args.node_operation == 'save':
+            # Require a private input file; keys never appear in shell arguments/output.
+            body = json.loads(read_secret(args.file))
+            return request(args.url, token, 'POST', base, body)
+        return request(args.url, token, 'POST', base+'/'+args.node_id+'/'+args.node_operation, {})
     token = read_secret(settings.backend_token_file).decode()
     if args.command in ('health','nodes'):
         return request(args.url, token, 'GET', '/v1/health' if args.command=='health' else '/internal/v1/nodes')

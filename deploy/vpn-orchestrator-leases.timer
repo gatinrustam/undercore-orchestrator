@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew Undercore node permissions
+
+[Timer]
+OnBootSec=5
+OnUnitInactiveSec=15
+AccuracySec=1
+Unit=vpn-orchestrator-leases.service
+
+[Install]
+WantedBy=timers.target

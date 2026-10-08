@@ -153,3 +153,24 @@ def test_failed_health_rolls_back_code_without_restoring_live_journal(tmp_path,m
     assert all((units/u).read_text()=='old unit' for u in update.UNITS)
     with sqlite3.connect(journal) as db: assert db.execute('SELECT value FROM marker').fetchall()==[('before',),('live',)]
     assert ['systemctl','start',update.UNITS[2]] in calls
+
+
+def test_admin_credential_cannot_equal_backend(settings_file):
+    data=json.loads(settings_file.read_text());data['admin_token_file']=data['backend_token_file']
+    settings_file.write_text(json.dumps(data))
+    with pytest.raises(ValueError,match='separate admin'):load_settings(settings_file)
+
+
+def test_additive_upgrade_preserves_existing_journal_and_seeds_inventory(settings_file,tmp_path):
+    import subprocess,sys
+    data=json.loads(settings_file.read_text());store=Assignments(data['state_directory'])
+    with store.db() as db:
+        for table in ('control_leases','access_cache','retired_bindings'):db.execute('DROP TABLE '+table)
+    code=next(c for c in update.update.__code__.co_consts if isinstance(c,str) and c.startswith('import sqlite3,sys'))
+    subprocess.run([sys.executable,'-c',code,data['state_directory'],str(settings_file)],check=True)
+    with store.db() as db:
+        assert db.execute('SELECT id,revision FROM node_registry').fetchall()[0]['id']=='node-a'
+    # A repeated initialization does not reset the live inventory revision or duplicate a node.
+    with store.db() as db:db.execute('UPDATE node_registry SET revision=8')
+    subprocess.run([sys.executable,'-c',code,data['state_directory'],str(settings_file)],check=True)
+    with store.db() as db:assert db.execute('SELECT revision FROM node_registry').fetchone()[0]==8

@@ -1,4 +1,4 @@
-"""Explicit lab-only entry point. No production compose or Laravel wiring."""
+"""Service factories: production agent API and separately gated historical lab."""
 
 import json
 import os
@@ -40,10 +40,13 @@ def agent_service():
     from .node_agent import AgentAPI
     settings = load_settings()
     service = AgentGateway(settings.validate_nodes(), Assignments(Path(settings.state_directory)), AgentAPI())
+    from .registry import NodeRegistry
+    service.registry = NodeRegistry(service.store, settings.nodes)
+    service.admin_token = read_secret(settings.admin_token_file).decode() if settings.admin_token_file else None
     return service, read_secret(settings.backend_token_file).decode()
 
 
 def agent_app():
     from .agent_http import create_agent_app
     service, token = agent_service()
-    return create_agent_app(service, token)
+    return create_agent_app(service, token, admin_token=service.admin_token)

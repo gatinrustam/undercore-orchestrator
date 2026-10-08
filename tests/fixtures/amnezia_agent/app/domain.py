@@ -118,6 +118,8 @@ class Engine:
     """Caller holds exclusive process lock. Backend operates only the managed container."""
     def __init__(self, store, backend, network='10.78.0.0/24'):
         self.store, self.backend = store, backend
+        from .control_lease import ControlLease
+        self.control_lease = ControlLease(store)
         self.network = ipaddress.ip_network(network)
         if self.network.version != 4 or self.network.num_addresses > 65536 or self.network.num_addresses < 8 or not self.network.is_private:
             raise ValueError('invalid private allocation pool')
@@ -128,6 +130,7 @@ class Engine:
 
     def reconcile(self):
         rows = self.rows()
+        gate_open = self.control_lease.allowed()
         epoch, actual, handshakes = self.backend.snapshot()
         with self.store.db() as db:
             previous = db.execute('SELECT * FROM runtime WHERE id=1').fetchone()
@@ -139,11 +142,11 @@ class Engine:
                 expected = set(json.loads(previous['public_keys']))
                 missing = expected - actual
                 for row in rows:
-                    if row['public_key'] in missing and row['phase'] == 'ready' and row['enabled'] and row['expires_at'] > stamp(now()):
+                    if row['public_key'] in missing and row['phase'] == 'ready' and row['enabled'] and row['expires_at'] > stamp(now()) and gate_open:
                         db.execute("UPDATE clients SET phase='conflict', updated_at=? WHERE client_id=?", (stamp(now()), row['client_id']))
                         row['phase'] = 'conflict'
-        desired = [r for r in rows if r['enabled'] and r['phase'] != 'conflict' and r['expires_at'] > stamp(now())]
-        self.backend.apply([(r, self.store.unseal(r)) for r in desired])
+        desired = [r for r in rows if self.control_lease.allowed() and r['enabled'] and r['phase'] != 'conflict' and r['expires_at'] > stamp(now())]
+        self.backend.apply([({**r, "expires_at": self.control_lease.effective_expiry(r)}, self.store.unseal(r)) for r in desired])
         epoch_after, present, handshakes = self.backend.snapshot()
         wanted = {r['public_key'] for r in desired}
         if epoch_after != epoch or present != wanted:
@@ -168,11 +171,16 @@ class Engine:
                 'status': status, 'last_handshake_at': handshakes.get(row['public_key']), 'connection_checked_at': stamp(now())}
 
     def execute(self, data):
-        cmd = Command.model_validate(data)
+        from .control_lease import LeaseCommand
+        cmd = (LeaseCommand if data.get("operation") == "control_lease" else Command).model_validate(data)
         # Reconcile before mutations: never silently restore missing peers on renewal.
         handshakes = self.reconcile()
         if cmd.operation == 'health':
-            return {'status': 'ok', 'protocol': 'amneziawg', 'version': '1.0.0', 'formats': ['conf', 'amnezia-vpn'], 'expiry_interval_seconds': 15}
+            return {'status': 'ok', 'protocol': 'amneziawg', 'version': '1.0.0', 'formats': ['conf', 'amnezia-vpn'], 'expiry_interval_seconds': 15, 'control_lease': self.control_lease.describe()}
+        if cmd.operation == 'control_lease':
+            self.control_lease.grant(cmd.controller_id, cmd.sequence, cmd.valid_until)
+            self.reconcile()
+            return self.control_lease.describe()
         if cmd.operation == 'list':
             return {'clients': [self.view(r, handshakes) for r in self.rows()]}
         if cmd.operation == 'create':
@@ -201,6 +209,8 @@ class Engine:
             row = self.get(cmd.client_id)
             client_id = row['client_id']
             if cmd.operation in ('configuration', 'amnezia'):
+                if not self.control_lease.allowed():
+                    raise Fault('control_lease_expired', 503)
                 if row['expires_at'] <= stamp(now()):
                     raise Fault('expired', 410)
                 if row['phase'] != 'ready' or not row['enabled']:

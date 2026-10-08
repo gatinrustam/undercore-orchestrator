@@ -36,6 +36,8 @@ class Node:
     mode: Literal["active", "draining", "disabled"] = "active"
     protocol: Literal["amneziawg", "trusttunnel"] = "amneziawg"
 
+    lease_enabled: bool = False
+
     def __post_init__(self):
         url = urlsplit(self.api_url)
         if (

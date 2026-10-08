@@ -2,7 +2,7 @@
 """Root-only immutable release update. Credentials, nodes and live journal stay put.
 
 No git pull in runtime, no database restore on rollback, no node API mutations.
-Schema-changing updates are deliberately rejected; they require a migration plan.
+Only reviewed additive lease tables may be introduced; existing assignments stay unchanged.
 """
 import argparse
 import fcntl
@@ -26,7 +26,7 @@ SETTINGS=Path('/etc/vpn-orchestrator/settings.json')
 UNITS_DIR=Path('/etc/systemd/system')
 BACKUPS=Path('/var/backups')
 CLI=Path('/usr/local/bin/orchestratorctl')
-UNITS=('vpn-orchestrator.service','vpn-orchestrator-recovery.service','vpn-orchestrator-recovery.timer')
+UNITS=('vpn-orchestrator.service','vpn-orchestrator-recovery.service','vpn-orchestrator-recovery.timer','vpn-orchestrator-leases.service','vpn-orchestrator-leases.timer')
 MAX_BYTES=8*1024*1024
 
 
@@ -43,7 +43,7 @@ def inspect_archive(path, digest):
             if size>MAX_BYTES:raise ValueError('archive_too_large')
             result[item.name]=tar.extractfile(item).read()
     info=json.loads(result.pop('release.json'))
-    if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',info['version']) or not re.fullmatch(r'[a-f0-9]{40}',info['commit']) or info['journal_schema']!=1:
+    if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',info['version']) or not re.fullmatch(r'[a-f0-9]{40}',info['commit']) or info['journal_schema'] not in (1,2):
         raise ValueError('release_metadata_invalid')
     if info['files']!={k:hashlib.sha256(v).hexdigest() for k,v in result.items()}:
         raise ValueError('release_manifest_invalid')
@@ -100,6 +100,12 @@ def update(archive, digest, adopt_existing=False):
     settings=json.loads(settings_before)
     if settings['state_directory']!='/var/lib/vpn-orchestrator':raise ValueError('unexpected_state_directory')
     state=Path(settings['state_directory']);journal=state/'assignments.sqlite3'
+    # Once permissions have been granted, rollback must retain their heartbeat/fencing implementation.
+    with sqlite3.connect(journal.as_uri()+'?mode=ro',uri=True) as db:
+        if db.execute("SELECT 1 FROM sqlite_master WHERE name='control_leases'").fetchone():
+            enrolled=db.execute('SELECT 1 FROM control_leases LIMIT 1').fetchone()
+            if enrolled and (not prior_manifest.exists() or prior.get('journal_schema',1)<2):
+                raise ValueError('lease_aware_rollback_required')
     release=ROOT/'releases'/('v'+info['version']+'-'+info['commit'][:12])
     if release.exists():raise ValueError('release_directory_exists_inspect_previous_attempt')
     release.mkdir(mode=0o755);release.chmod(0o755)
@@ -122,24 +128,35 @@ def update(archive, digest, adopt_existing=False):
     code="""import sqlite3,sys
 from pathlib import Path
 from orchestrator.assignments import Assignments
+from orchestrator.registry import NodeRegistry
+from orchestrator.settings import Settings
 p=Path(sys.argv[1])
 def state():
  with sqlite3.connect(p/'assignments.sqlite3') as db:
   schema=db.execute('SELECT type,name,sql FROM sqlite_master ORDER BY name').fetchall()
-  rows={t:db.execute('SELECT * FROM '+t+' ORDER BY rowid').fetchall() for t in ('assignments','switches')}
+  tables=[r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+  rows={t:db.execute('SELECT * FROM '+t+' ORDER BY rowid').fetchall() for t in tables}
   return schema,rows
-before=state();Assignments(p);assert state()==before, 'Migration requires separate review'
+before=state();store=Assignments(p)
+NodeRegistry(store,Settings.model_validate_json(Path(sys.argv[2]).read_bytes()).nodes)
+after=state()
+assert all(after[1].get(t)==rows for t,rows in before[1].items()), 'Existing journal rows changed'
+added=set(after[0])-set(before[0]);removed=set(before[0])-set(after[0])
+allowed={'control_leases','access_cache','retired_bindings','node_registry','registry_meta'}
+assert not removed and all((name in allowed or name.startswith('sqlite_autoindex_') and any(name.startswith('sqlite_autoindex_'+t+'_') for t in allowed)) for _,name,_ in added), 'Migration requires separate review'
 """
-    run([python,'-c',code,str(preflight)],cwd=release)
+    run([python,'-c',code,str(preflight),str(SETTINGS)],cwd=release)
     (backup/'settings.json').write_bytes(settings_before);(backup/'settings.json').chmod(0o600)
     (backup/'previous-release.txt').write_text(str(previous))
-    for unit in UNITS:shutil.copyfile(UNITS_DIR/unit,backup/unit)
+    existing=[unit for unit in UNITS if (UNITS_DIR/unit).exists()]
+    for unit in existing:shutil.copyfile(UNITS_DIR/unit,backup/unit)
     cli=CLI
     if cli.exists():shutil.copyfile(cli,backup/'orchestratorctl')
-    timer_enabled=subprocess.run(['systemctl','is-enabled','--quiet',UNITS[2]]).returncode==0
+    timers_enabled=[u for u in (UNITS[2],UNITS[4]) if u in existing and subprocess.run(['systemctl','is-enabled','--quiet',u]).returncode==0]
     changed=False
     try:
-        run(['systemctl','stop',UNITS[2],UNITS[1]],timeout=720)
+        run(['systemctl','stop',*[u for u in existing if u in UNITS[1:3]]],timeout=720)
+        if UNITS[3] in existing:run(['systemctl','stop',UNITS[4],UNITS[3]],timeout=120)
         run(['systemctl','stop',UNITS[0]])
         snapshot(journal,backup/'assignments.sqlite3')
         identity=(journal.stat().st_dev,journal.stat().st_ino)
@@ -160,6 +177,8 @@ before=state();Assignments(p);assert state()==before, 'Migration requires separa
         if SETTINGS.read_bytes()!=settings_before or (journal.stat().st_dev,journal.stat().st_ino)!=identity:
             raise ValueError('runtime_state_replaced')
         shutil.copyfile(release/'deploy/orchestratorctl',cli);cli.chmod(0o755)
+        run(['systemctl','start',UNITS[3]],timeout=120)
+        run(['systemctl','enable','--now',UNITS[4]])
         run(['systemctl','start',UNITS[1]],timeout=720)
         run(['systemctl','enable','--now',UNITS[2]])
         result={'status':'updated','version':info['version'],'commit':info['commit'],'backup':str(backup),'settings_preserved':True,'journal_preserved':True}
@@ -167,15 +186,17 @@ before=state();Assignments(p);assert state()==before, 'Migration requires separa
         return result
     except BaseException:
         if changed:
-            run(['systemctl','stop',UNITS[2],UNITS[1],UNITS[0]],timeout=720)
+            run(['systemctl','stop',*[u for u in UNITS if (UNITS_DIR/u).exists()]],timeout=720)
             for unit in UNITS:
-                path=UNITS_DIR/unit;shutil.copyfile(backup/unit,path);path.chmod(0o644)
+                path=UNITS_DIR/unit
+                if (backup/unit).exists():shutil.copyfile(backup/unit,path);path.chmod(0o644)
+                else:path.unlink(missing_ok=True)
             activate(previous)
             if (backup/'orchestratorctl').exists():shutil.copyfile(backup/'orchestratorctl',cli);cli.chmod(0o755)
             elif cli.exists():cli.unlink()
             run(['systemctl','daemon-reload'])
         run(['systemctl','start',UNITS[0]])
-        if timer_enabled:run(['systemctl','start',UNITS[2]])
+        for timer in timers_enabled:run(['systemctl','start',timer])
         raise
 
 

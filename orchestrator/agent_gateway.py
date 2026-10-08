@@ -9,16 +9,28 @@ class AgentGateway:
         if any(len(set(values)) != len(values) for values in (
             [n.id for n in nodes], [n.server_id for n in nodes], [n.api_url.lower().rstrip('/') for n in nodes])):
             raise ValueError('Duplicate node')
-        self.nodes = {n.id: n for n in nodes}
+        self._nodes = {n.id: n for n in nodes}
+        self.registry = None
         self.store, self.api = store, api
         self.drivers = drivers or DriverRegistry([AmneziaAgentDriver(api)])
         for node in nodes:
             self.drivers.for_node(node)
 
+    @property
+    def nodes(self):
+        return self.registry.nodes() if self.registry else self._nodes
+
+    def available(self, node):
+        from .leases import NodeLeases
+        return node.mode == 'active' and NodeLeases(self).ready(node)
+
     def node(self, row, issuance=False):
         node = self.nodes.get(row['node_id'])
         if node is None or node.server_id != row['server_id'] or node.protocol != row['protocol']:
             raise PilotError('assigned_node_identity_changed', 503)
+        if issuance:
+            from .leases import NodeLeases
+            if not NodeLeases(self).ready(node): raise PilotError('node_permission_unavailable',503)
         if issuance and node.mode == 'disabled':
             raise PilotError('assigned_node_disabled', 503)
         return node
@@ -34,7 +46,7 @@ class AgentGateway:
         if row is None:
             observations = []
             for node in self.nodes.values():
-                if node.mode == 'active' and node.protocol == protocol:
+                if self.available(node) and node.protocol == protocol:
                     try:
                         observations.append(self.drivers.for_node(node).observe(node))
                     except PilotError:
@@ -72,6 +84,9 @@ class AgentGateway:
             data = self.drivers.for_node(self.node(row)).validate(call(), external_id=row['binding_key'], client_id=row['remote_id'])
             self.store.bind(row, data['client_id'])
             self.store.record(row, operation, 'ok')
+            from .leases import NodeLeases
+            NodeLeases(self).remember(row, data)
+            if operation == 'enable': NodeLeases(self).deny(row, False)
             return {**data, 'client_id': row['client_id'], 'external_id': row['external_id']}
         except PilotError as error:
             self.store.record(row, operation, error.code)
@@ -84,12 +99,21 @@ class AgentGateway:
 
     def client(self, client_id, operation='get', payload=None):
         with connection_lock(self.store, client_id):
-            return self.client_locked(client_id, operation, payload)
+            try:
+                return self.client_locked(client_id, operation, payload)
+            except PilotError as error:
+                if operation != 'disable' or error.status != 503: raise
+                from .leases import NodeLeases
+                row=self.store.get(client_id=client_id)
+                if not row or not self.node(row).lease_enabled: raise
+                return NodeLeases(self).disabled_view(row)
 
     def client_locked(self, client_id, operation='get', payload=None):
         row = self.store.get(client_id=client_id)
         if row is None:
             raise PilotError('not_found', 404)
+        from .leases import NodeLeases
+        if operation == 'disable': NodeLeases(self).deny(row)
         from .switches import Switches
         pending = Switches(self).pending(client_id)
         if pending and operation == 'disable':

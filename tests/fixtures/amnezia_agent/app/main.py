@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.concurrency import run_in_threadpool
 
 from .domain import Command, Fault
+from .control_lease import LeaseCommand
 from .diagnostics import DiagnosticFastAPI, adopt_authenticated_id
 from pydantic import ValidationError
 
@@ -68,7 +69,7 @@ def create_app(token=None, transport=rpc, server_id=None):
                         raise Fault('invalid_request', 422)
             if 'operation' in payload or 'client_id' in payload:
                 raise Fault('invalid_request', 422)
-            command = Command.model_validate({**payload, 'operation': operation, 'client_id': client_id})
+            command = (LeaseCommand if operation == 'control_lease' else Command).model_validate({**payload, 'operation': operation, 'client_id': client_id})
             result = await run_in_threadpool(transport, command.model_dump())
             if operation == 'health' and server_id is not None:
                 result = {**result, 'server_id': server_id}
@@ -85,6 +86,10 @@ def create_app(token=None, transport=rpc, server_id=None):
     @application.get('/v1/health')
     async def health():
         return await invoke('health')
+
+    @application.post('/v1/control-lease')
+    async def control_lease(request: Request):
+        return await invoke('control_lease', request)
 
     @application.get('/v1/clients')
     async def listing():
