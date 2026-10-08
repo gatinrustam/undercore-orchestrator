@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "undercore-orchestrator"
+dynamic = ["version"]
+description = "Independent VPN connection orchestration with durable node lifecycle"
+readme = "docs/public/quickstart.md"
+requires-python = ">=3.12"
+dependencies = ["fastapi==0.141.1", "httpx==0.28.1", "pydantic==2.13.5", "uvicorn==0.52.4"]
+
+[project.scripts]
+undercore-orchestrator = "orchestrator.interfaces.cli.main:main"
+orchestratorctl = "orchestrator.interfaces.cli.main:main"
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
+[tool.setuptools.packages.find]
+include = ["orchestrator*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["F401", "F811", "E402"]

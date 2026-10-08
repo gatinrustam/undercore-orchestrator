@@ -1,1 +1,1 @@
-"""Local orchestration pilot. Not connected to production or native clients."""
+"""Independent VPN assignment orchestration."""

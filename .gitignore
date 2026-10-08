@@ -13,3 +13,6 @@ config/settings.json
 state/
 dist/
 *.egg-info/
+build/
+local/
+.ruff_cache/

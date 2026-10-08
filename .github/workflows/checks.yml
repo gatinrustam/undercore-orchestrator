@@ -13,7 +13,11 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: requirements.lock
-      - run: python -m pip install -r requirements.lock
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pip install --no-deps .
+      - run: undercore-orchestrator --help
+      - run: ruff check orchestrator scripts tests
+      - run: ruff format --check orchestrator scripts tests
       - run: python -m pytest -q
       - run: python scripts/check_contracts.py
       - run: python -m orchestrator --settings config/settings.example.json check-config --structure-only

@@ -1,0 +1,10 @@
+{
+  "id": "node-a",
+  "api_url": "https://node-api.example.invalid",
+  "server_id": "node-a-identity",
+  "region": "nl",
+  "capacity": 100,
+  "mode": "disabled",
+  "protocol": "amneziawg",
+  "api_key_file": "/etc/vpn-orchestrator/node-a.token"
+}

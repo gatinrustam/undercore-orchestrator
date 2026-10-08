@@ -1,2 +1,3 @@
-from .cli import main
+from orchestrator.interfaces.cli.main import main
+
 raise SystemExit(main())

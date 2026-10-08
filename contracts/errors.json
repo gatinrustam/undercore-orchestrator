@@ -1,0 +1,293 @@
+{
+  "access_unavailable": {
+    "http_statuses": [
+      410
+    ]
+  },
+  "assigned_node_changed": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "assigned_node_disabled": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "assigned_node_identity_changed": {
+    "http_statuses": [
+      409,
+      503
+    ]
+  },
+  "assignment_identity_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "client_upgrade_required": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "configuration_changed": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "connection_busy": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "control_lease_unavailable": {
+    "http_statuses": [
+      409,
+      503
+    ]
+  },
+  "control_lease_unconfirmed": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "controller_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "creation_lifetime_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "duplicate_node": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "grant_expired": {
+    "http_statuses": [
+      410
+    ]
+  },
+  "invalid_node_credential": {
+    "http_statuses": [
+      422
+    ]
+  },
+  "invalid_request": {
+    "http_statuses": [
+      422
+    ]
+  },
+  "lease_cannot_be_disabled": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "lease_node_identity_changed": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "lease_sequence_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "lease_waiting": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "leased_node_limit": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "management_unavailable": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "no_alternative_node": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "no_compatible_protocol": {
+    "http_statuses": [
+      422
+    ]
+  },
+  "no_eligible_node": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "node_credential_required": {
+    "http_statuses": [
+      422
+    ]
+  },
+  "node_has_pending_switches": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "node_identity_invalid": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "node_permission_unavailable": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "node_request_failed": {
+    "http_statuses": [
+      404,
+      409,
+      410,
+      422,
+      503
+    ]
+  },
+  "node_response_invalid": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "node_revision_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "node_unavailable": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "not_found": {
+    "http_statuses": [
+      404
+    ]
+  },
+  "offline_grant_unavailable": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "orchestrator_unavailable": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "recovery_cooldown": {
+    "http_statuses": [
+      429
+    ]
+  },
+  "remote_identity_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "request_failed": {
+    "http_statuses": [
+      401,
+      403,
+      404,
+      409,
+      410,
+      413,
+      422,
+      429,
+      500,
+      503
+    ]
+  },
+  "request_too_large": {
+    "http_statuses": [
+      413
+    ]
+  },
+  "revision_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "revoke_unconfirmed": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "root_required": {
+    "http_statuses": [
+      403
+    ]
+  },
+  "service_command_failed": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "switch_cancelled": {
+    "http_statuses": [
+      410
+    ]
+  },
+  "switch_identity_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "switch_in_progress": {
+    "http_statuses": [
+      409,
+      503
+    ]
+  },
+  "switch_superseded": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "systemd_requires_linux": {
+    "http_statuses": [
+      422
+    ]
+  },
+  "target_access_unavailable": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "target_node_unavailable": {
+    "http_statuses": [
+      503
+    ]
+  },
+  "unauthorized": {
+    "http_statuses": [
+      401
+    ]
+  },
+  "unsupported_format": {
+    "http_statuses": [
+      422
+    ]
+  },
+  "unsupported_operation": {
+    "http_statuses": [
+      422
+    ]
+  },
+  "unsupported_protocol": {
+    "http_statuses": [
+      422
+    ]
+  }
+}

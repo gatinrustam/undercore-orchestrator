@@ -13,5 +13,6 @@
       "protocol": "amneziawg",
       "api_key_file": "/etc/vpn-orchestrator/node-a.token"
     }
-  ]
+  ],
+  "policy": {}
 }
