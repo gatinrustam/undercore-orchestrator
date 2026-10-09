@@ -18,6 +18,7 @@ class RecoveryPolicy(PolicyModel):
 
 
 class SelectionPolicy(PolicyModel):
+    observation_workers: int = Field(default=4, ge=1, le=16)
     observation_max_age_seconds: int = Field(default=30, ge=1, le=300)
 
 

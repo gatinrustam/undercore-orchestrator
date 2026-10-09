@@ -99,7 +99,7 @@ class AgentAPI:
 
     def observe(self, node):
         started = time.time()
-        self.verify(node)
+        # list() already verifies this node immediately before its read.
         clients = self.list(node)
         return Observation(node, len(clients), node.capacity, started)
 

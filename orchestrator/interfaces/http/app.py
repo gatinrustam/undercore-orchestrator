@@ -11,6 +11,7 @@ from orchestrator.domain.models import OrchestratorError
 def validate(operation, payload):
     schemas = {
         "create": ({"external_id", "device_id", "name", "expires_at"}, set()),
+        "lookup": ({"external_id", "device_id"}, set()),
         "renew": ({"expires_at", "idempotency_key"}, set()),
         "replace": ({"expected_external_id", "expires_at", "idempotency_key"}, {"allow_create"}),
         "enable": (set(), set()),
@@ -128,6 +129,11 @@ def create_agent_app(service, token):
     @app.post("/v1/clients")
     async def create(request: Request):
         return await run_in_threadpool(service.create, await body(request, "create"))
+
+    @app.post("/v1/clients/lookup")
+    async def lookup(request: Request):
+        payload = await body(request, "lookup")
+        return await run_in_threadpool(service.lookup, payload["external_id"])
 
     def legacy_only(client_id):
         row = service.store.get(client_id=client_id)

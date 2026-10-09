@@ -1,6 +1,7 @@
 """Internal VpnGateway-compatible facade. The calling backend remains the entitlement authority."""
 
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
 from orchestrator.domain.models import OrchestratorError
 from orchestrator.infrastructure.sqlite.locking import connection_lock
 from orchestrator.infrastructure.drivers.amneziawg import AmneziaAgentDriver
@@ -62,13 +63,18 @@ class AgentGateway:
         if row is not None and (row["protocol"] != protocol or row["device_id"] != device_id):
             raise OrchestratorError("assignment_identity_conflict", 409)
         if row is None:
-            observations = []
-            for node in self.nodes.values():
-                if self.available(node) and node.protocol == protocol:
-                    try:
-                        observations.append(self.drivers.for_node(node).observe(node))
-                    except OrchestratorError:
-                        pass
+            # Independent I/O, bounded fan-out. Reservation below still serializes
+            # capacity decisions, including assignments created during observation.
+            nodes = [n for n in self.nodes.values() if self.available(n) and n.protocol == protocol]
+
+            def observe(node):
+                try:
+                    return self.drivers.for_node(node).observe(node)
+                except OrchestratorError:
+                    return None
+
+            with ThreadPoolExecutor(max_workers=self.policy.selection.observation_workers) as pool:
+                observations = [value for value in pool.map(observe, nodes) if value is not None]
             row = self.store.reserve(payload, observations, device_id, protocol)
         with connection_lock(self.store, row["client_id"]):
             return self.create_reserved(self.store.get(client_id=row["client_id"]), payload)
@@ -197,6 +203,23 @@ class AgentGateway:
 
             value = self.invoke(row, "configuration", fetch)
             return NodeConnection(value, snapshot.configuration)
+
+    def lookup(self, external_id):
+        """Indexed identity lookup; missing assignments never contact VPN nodes."""
+        row = self.store.get(external_id=external_id)
+        if row is None:
+            return {"clients": []}
+        if row["protocol"] != "amneziawg":
+            raise OrchestratorError("assignment_identity_conflict", 409)
+        try:
+            client = self.client(row["client_id"])
+        except OrchestratorError as error:
+            if error.status != 404:
+                raise
+            # A confirmed missing peer may be recovered by the same durable
+            # creation intent. Timeouts and identity conflicts are never absence.
+            return {"clients": []}
+        return {"clients": [client]}
 
     def listing(self):
         result = []
