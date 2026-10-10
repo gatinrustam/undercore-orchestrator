@@ -33,3 +33,11 @@ for source in (root / "orchestrator").rglob("*.py"):
         ):
             assert call.args[0].value in catalog, "Undocumented error code"
 print("Machine-readable error catalog verified")
+
+# This does not instantiate the app or load production settings.
+from orchestrator.interfaces.http.specification import document  # noqa: E402
+
+assert json.loads((root / "contracts/openapi.json").read_text()) == document(), (
+    "OpenAPI is stale; run python scripts/export_openapi.py"
+)
+print("Offline OpenAPI verified")

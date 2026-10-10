@@ -24,6 +24,7 @@
 | agents.response_timeout_seconds | 12 | 1–15 |
 | recovery.cooldown_seconds | 1800 | 60–86400 |
 | recovery.reconcile_batch_size | 16 | 1–100 |
+| selection.observation_workers | 4 | 1–16 |
 | selection.observation_max_age_seconds | 30 | 1–300 |
 | leases.duration_seconds | 90 | 90–120 |
 | leases.max_node_lease_seconds | 120 | 120–300 |

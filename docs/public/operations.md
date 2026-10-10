@@ -61,21 +61,11 @@ CLI не проверяет оплату: это инструмент довер
 
 ## Первый запуск на новом сервере
 
-Нужен Linux с systemd, Python 3.12, venv и HTTPS-доступом к PyPI/агентам. Скачать
-архив выбранного GitHub Release и SHA256SUMS. Проверить хеш и содержимое с помощью
-`scripts/update.py:inspect_archive` перед извлечением. Установить код в новый каталог
-`/opt/vpn-orchestrator/releases/vVERSION-COMMIT`, создать там `.venv`, установить
-`requirements.lock`. Создать пользователя `vpn-orchestrator`, каталоги и приватные
-настройки с настоящими узлами; не копировать пример с disabled-узлом как рабочий.
-
-Выполнить `python -m orchestrator check-config --probe` из каталога релиза от
-пользователя сервиса с `ORCHESTRATOR_SETTINGS=/etc/vpn-orchestrator/settings.json`.
-Создать `current`, установить пять unit-файлов из `deploy`, wrapper `orchestratorctl`
-в `/usr/local/bin` (0755), выполнить `systemctl daemon-reload` и
-`systemctl enable --now vpn-orchestrator.service vpn-orchestrator-recovery.timer vpn-orchestrator-leases.timer`.
-При первом запуске создаётся пустой журнал. Настроить доступ backend через локальную
-сеть/reverse proxy с HTTPS и ограничением источников, затем проверить health и nodes.
-Автоматизированный updater ниже предназначен для уже установленного сервиса.
+Используйте [установку службы](quickstart.md#установка-службы): scripts/install.py
+проверяет релиз, создаёт пользователя, каталоги и systemd units. Установщик не
+перезаписывает существующую установку и не добавляет VPN-узлы. После установки
+запустите службу, зарегистрируйте подготовленный агент и проверьте идентичность.
+Для обновления существующей службы применяется отдельный updater ниже.
 
 ## Выпуск и обновление
 
@@ -103,7 +93,7 @@ SQLite не заменяются; сайты и VPN-агенты не перез
 Живой журнал **не откатывается**: он может содержать уже выполненные операции.
 Версия 0.2 добавляет таблицы leases/cache/retired bindings, не изменяя существующие
 назначения и переключения. Иные изменения этих данных/схем отклоняются на копии.
-После включения leases допустим только lease-aware rollback; см. [границы](../internal/node-leases.md).
+После включения leases допустим только lease-aware rollback; см. [ограничения leases](node-agent.md#короткие-разрешения-и-отказ-контроллера).
 
 `SIGTERM`/разрыв SSH обрабатываются для попытки отката; сбой питания или `SIGKILL`
 невозможно гарантированно обработать. Тогда оператор сверяет `current`, units,

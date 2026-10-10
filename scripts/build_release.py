@@ -18,7 +18,14 @@ def git(*args):
 
 
 def allowed(path):
-    return path in ("VERSION", "requirements.lock", "pyproject.toml") or any(
+    return path in (
+        "VERSION",
+        "requirements.lock",
+        "pyproject.toml",
+        "README.md",
+        "LICENSE",
+        "NOTICE",
+    ) or any(
         path.startswith(prefix)
         for prefix in (
             "orchestrator/",

@@ -80,7 +80,8 @@ def inspect_archive(path, digest):
         raise ValueError("release_incomplete")
     for name in result:
         if not (
-            name in ("VERSION", "requirements.lock", "pyproject.toml")
+            name
+            in ("VERSION", "requirements.lock", "pyproject.toml", "README.md", "LICENSE", "NOTICE")
             or name.startswith(
                 ("orchestrator/", "deploy/", "scripts/", "contracts/", "config/", "docs/public/")
             )

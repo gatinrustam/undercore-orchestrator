@@ -1,0 +1,1706 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Undercore Orchestrator — backend API",
+    "version": "0.3.5",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    },
+    "description": "New integrations: v2 plus process health and node overview. Legacy v1 client operations are documented separately in docs/public/api.md. Trusted backend only; it authorizes users and slots. Bodies are limited to 8192 bytes. Runtime validation includes identity, expiry and state checks beyond JSON Schema. HTTPS is required off loopback. This artifact never enables live Swagger."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8792",
+      "description": "Local development only"
+    }
+  ],
+  "security": [
+    {
+      "backendToken": []
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "operationId": "health",
+        "summary": "Health",
+        "description": "Process health only; authenticated.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/nodes": {
+      "get": {
+        "operationId": "list_nodes",
+        "summary": "List nodes",
+        "description": "Registry and assignment metadata, not live speed tests.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Nodes"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/capabilities": {
+      "get": {
+        "operationId": "capabilities",
+        "summary": "Capabilities",
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections": {
+      "post": {
+        "operationId": "create_connection",
+        "summary": "Create connection",
+        "description": "Repeat the identical request with the same device_id after a lost response.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections/{connection_id}": {
+      "get": {
+        "operationId": "get_connection",
+        "summary": "Get connection",
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          },
+          {
+            "name": "device_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ]
+      }
+    },
+    "/internal/v2/connections/{connection_id}/configuration": {
+      "post": {
+        "operationId": "configuration_connection",
+        "summary": "Configuration connection",
+        "description": "Secret transport document. Never log response bodies.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionConfiguration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurationRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections/{connection_id}/export": {
+      "post": {
+        "operationId": "export_connection",
+        "summary": "Export connection",
+        "description": "Secret export of the existing assignment; never creates a new slot. QR requires format=qr.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionExport"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections/{connection_id}/recover": {
+      "post": {
+        "operationId": "recover_connection",
+        "summary": "Recover connection",
+        "description": "Repeat the same expected_revision; respect cooldown and lease waiting.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionConfiguration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections/{connection_id}/switch": {
+      "post": {
+        "operationId": "switch_connection",
+        "summary": "Switch connection",
+        "description": "Operator action. Same-protocol switch; repeat the same operation key and expected node.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections/{connection_id}/renew": {
+      "post": {
+        "operationId": "renew_connection",
+        "summary": "Renew connection",
+        "description": "Repeat the same idempotency_key and expiry after a timeout.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections/{connection_id}/replace": {
+      "post": {
+        "operationId": "replace_connection",
+        "summary": "Replace connection",
+        "description": "Compatibility replacement; expected_external_id must equal device_id.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections/{connection_id}/disable": {
+      "post": {
+        "operationId": "disable_connection",
+        "summary": "Disable connection",
+        "description": "A timeout does not confirm revocation. Repeat and verify state.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceOperation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v2/connections/{connection_id}/enable": {
+      "post": {
+        "operationId": "enable_connection",
+        "summary": "Enable connection",
+        "description": "Does not extend expiry or grant a new entitlement.",
+        "responses": {
+          "200": {
+            "description": "Successful operation. Tunnel connectivity is not implied.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "private, no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Application error: detail is a machine code (contracts/errors.json). 401 authorization; 404 ownership/not found; 409 conflict; 410 unavailable; 413/422 invalid input; 429 cooldown; 503 unavailable or pending lease. Framework query-validation errors can instead contain a detail array. Proxies may return non-JSON errors. Repeat only the same operation identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "detail": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "detail"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,100}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceOperation"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "backendToken": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Capability": {
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "configuration_version": {
+            "maximum": 65535,
+            "minimum": 1,
+            "title": "Configuration Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "protocol",
+          "configuration_version"
+        ],
+        "title": "Capability",
+        "type": "object"
+      },
+      "DeviceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+            "title": "Name",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "capabilities",
+          "device_id",
+          "name",
+          "expires_at"
+        ],
+        "title": "DeviceRequest",
+        "type": "object"
+      },
+      "ConfigurationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "capabilities",
+          "device_id"
+        ],
+        "title": "ConfigurationRequest",
+        "type": "object"
+      },
+      "ExportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "format": {
+            "enum": [
+              "conf",
+              "amnezia-vpn",
+              "qr"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "qr_content_format": {
+            "default": "conf",
+            "enum": [
+              "conf",
+              "amnezia-vpn"
+            ],
+            "title": "Qr Content Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "device_id",
+          "format"
+        ],
+        "title": "ExportRequest",
+        "type": "object"
+      },
+      "ExportDocument": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "enum": [
+              "conf",
+              "amnezia-vpn",
+              "qr"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "media_type": {
+            "enum": [
+              "application/octet-stream",
+              "image/png"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          },
+          "extension": {
+            "enum": [
+              "conf",
+              "vpn",
+              "png"
+            ],
+            "title": "Extension",
+            "type": "string"
+          },
+          "encoding": {
+            "enum": [
+              "utf-8",
+              "base64"
+            ],
+            "title": "Encoding",
+            "type": "string"
+          },
+          "data": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Data",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "media_type",
+          "extension",
+          "encoding",
+          "data"
+        ],
+        "title": "ExportDocument",
+        "type": "object"
+      },
+      "ConnectionExport": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "connection_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "active",
+              "disabled",
+              "expired",
+              "conflict"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/components/schemas/ExportDocument"
+          }
+        },
+        "required": [
+          "connection_id",
+          "device_id",
+          "node_id",
+          "protocol",
+          "state",
+          "expires_at",
+          "document"
+        ],
+        "title": "ConnectionExport",
+        "type": "object"
+      },
+      "RecoveryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "capabilities",
+          "device_id",
+          "expected_revision"
+        ],
+        "title": "RecoveryRequest",
+        "type": "object"
+      },
+      "SwitchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "expected_node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Expected Node Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "capabilities",
+          "device_id",
+          "expected_node_id",
+          "idempotency_key"
+        ],
+        "title": "SwitchRequest",
+        "type": "object"
+      },
+      "Connection": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "connection_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "active",
+              "disabled",
+              "expired",
+              "conflict"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "device_id",
+          "node_id",
+          "protocol",
+          "state",
+          "expires_at"
+        ],
+        "title": "Connection",
+        "type": "object"
+      },
+      "TransportConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "format": {
+            "enum": [
+              "awg-quick",
+              "trusttunnel-toml"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "data": {
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Data",
+            "type": "string"
+          }
+        },
+        "required": [
+          "protocol",
+          "format",
+          "data"
+        ],
+        "title": "TransportConfiguration",
+        "type": "object"
+      },
+      "ConnectionConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "connection_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "protocol": {
+            "enum": [
+              "amneziawg",
+              "trusttunnel"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "active",
+              "disabled",
+              "expired",
+              "conflict"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/TransportConfiguration"
+          }
+        },
+        "required": [
+          "connection_id",
+          "device_id",
+          "node_id",
+          "protocol",
+          "state",
+          "expires_at",
+          "revision",
+          "configuration"
+        ],
+        "title": "ConnectionConfiguration",
+        "type": "object"
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ]
+      },
+      "DeviceOperation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,100}$"
+          }
+        },
+        "required": [
+          "device_id"
+        ]
+      },
+      "RenewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,100}$"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_:.+-]{1,160}$"
+          }
+        },
+        "required": [
+          "device_id",
+          "expires_at",
+          "idempotency_key"
+        ]
+      },
+      "ReplaceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,100}$"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_:.+-]{1,160}$"
+          },
+          "expected_external_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,100}$"
+          },
+          "allow_create": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "device_id",
+          "expires_at",
+          "idempotency_key",
+          "expected_external_id"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "ok"
+          },
+          "protocol": {
+            "const": "amneziawg"
+          },
+          "mode": {
+            "const": "pilot",
+            "description": "Legacy compatibility field."
+          },
+          "formats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "service": {
+            "const": "undercore-orchestrator"
+          },
+          "version": {
+            "type": "string"
+          },
+          "contract_version": {
+            "const": 2
+          }
+        },
+        "required": [
+          "status",
+          "protocol",
+          "mode",
+          "formats",
+          "service",
+          "version",
+          "contract_version"
+        ]
+      },
+      "Capabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "protocols": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "protocol": {
+                  "type": "string"
+                },
+                "configuration_version": {
+                  "type": "integer"
+                },
+                "idempotent_create": {
+                  "type": "boolean"
+                },
+                "enforces_expiry": {
+                  "type": "boolean"
+                },
+                "confirmed_revoke": {
+                  "type": "boolean"
+                },
+                "export_formats": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "protocol",
+                "configuration_version",
+                "idempotent_create",
+                "enforces_expiry",
+                "confirmed_revoke",
+                "export_formats"
+              ]
+            }
+          }
+        },
+        "required": [
+          "schema_version",
+          "protocols"
+        ]
+      },
+      "Nodes": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "region": {
+                  "type": "string"
+                },
+                "mode": {
+                  "enum": [
+                    "active",
+                    "draining",
+                    "disabled"
+                  ]
+                },
+                "assigned": {
+                  "type": "integer"
+                },
+                "capacity": {
+                  "type": "integer"
+                },
+                "pending": {
+                  "type": "integer"
+                },
+                "last_operation": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "last_outcome": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "checked_at": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "region",
+                "mode",
+                "assigned",
+                "capacity",
+                "pending",
+                "last_operation",
+                "last_outcome",
+                "checked_at"
+              ]
+            }
+          }
+        },
+        "required": [
+          "nodes"
+        ]
+      }
+    }
+  }
+}

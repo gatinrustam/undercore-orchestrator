@@ -30,4 +30,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" dist/* --title "Undercore Orchestrator $TAG" --notes "Independent orchestrator release. See docs/internal/operations.md for the controlled update command and rollback policy."
+        run: gh release create "$TAG" dist/* --title "Undercore Orchestrator $TAG" --notes "Independent orchestrator release. See docs/public/operations.md for the controlled update command and rollback policy."

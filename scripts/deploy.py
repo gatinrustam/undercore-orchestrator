@@ -18,7 +18,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--release", required=True)
     p.add_argument("--host", required=True)
-    p.add_argument("--repo", default="gatinrustam/undercore-orchestrator")
+    p.add_argument("--repo", default="UndercoreCo/orchestrator")
     p.add_argument("--adopt-existing", action="store_true")
     a = p.parse_args()
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", a.release):
