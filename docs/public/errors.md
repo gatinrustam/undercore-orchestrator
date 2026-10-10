@@ -1,7 +1,7 @@
 # Ошибки и повтор запросов
 
 Прикладные ошибки возвращают `{"detail":"machine_readable_code"}`. Полный
-[каталог](../../contracts/errors.json) содержит возможные HTTP-статусы; наличие
+[каталог](https://github.com/UndercoreCo/orchestrator/blob/main/contracts/errors.json) содержит возможные HTTP-статусы; наличие
 кода в каталоге не означает, что его возвращает каждый маршрут.
 
 | Ситуация | Действие backend |

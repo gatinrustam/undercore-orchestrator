@@ -1,0 +1,16 @@
+{
+  "name": "undercore-orchestrator-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev docs/public",
+    "docs:build": "vitepress build docs/public && node scripts/check_docs_site.mjs",
+    "docs:preview": "vitepress preview docs/public"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

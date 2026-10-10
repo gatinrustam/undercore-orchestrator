@@ -16,3 +16,7 @@ dist/
 build/
 local/
 .ruff_cache/
+
+node_modules/
+docs/public/.vitepress/cache/
+docs/public/.vitepress/dist/

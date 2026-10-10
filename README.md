@@ -64,6 +64,8 @@ controller outage can stop their VPN access. Plan maintenance accordingly.
 
 ## Documentation
 
+**[Read the documentation website](https://undercoreco.github.io/orchestrator/)**
+
 The detailed guides are currently in Russian.
 
 - [Documentation index](docs/public/index.md)

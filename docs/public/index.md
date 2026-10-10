@@ -15,7 +15,7 @@
 
 ## Справочники
 
-- [API](api.md), [OpenAPI](../../contracts/openapi.json), [ошибки и повторы](errors.md).
+- [API](api.md), [OpenAPI](https://github.com/UndercoreCo/orchestrator/blob/main/contracts/openapi.json), [ошибки и повторы](errors.md).
 - [Настройки и таймауты](configuration.md).
 - [Архитектура и расположение кода](architecture.md).
 - [Создание драйвера](drivers.md).

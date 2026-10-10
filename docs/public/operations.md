@@ -19,7 +19,7 @@
 Настройки и ключи должны читаться этим пользователем; каталог состояния — 0700,
 SQLite — 0600. Код принадлежит root и недоступен сервису для записи.
 
-Пример без настоящих адресов: [settings.example.json](../../config/settings.example.json).
+Пример без настоящих адресов: [settings.example.json](https://github.com/UndercoreCo/orchestrator/blob/main/config/settings.example.json).
 `schema_version` — версия настроек, `id` и `server_id` узла стабильны.
 `active` допускает новые назначения, `draining` обслуживает существующие,
 `disabled` исключает узел из обслуживания. Отключение узла в настройках не отзывает

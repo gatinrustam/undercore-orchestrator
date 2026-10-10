@@ -1,7 +1,7 @@
 # Лицензия и происхождение кода
 
 Собственный код и документация оркестратора распространяются по
-[MIT](../../LICENSE). Выбор подтверждён владельцем проекта.
+[MIT](https://github.com/UndercoreCo/orchestrator/blob/main/LICENSE). Выбор подтверждён владельцем проекта.
 
 Зависимости Python и внешние VPN-компоненты сохраняют собственные лицензии;
 лицензия этого проекта не заменяет их. Закреплённые Python-зависимости перечислены
@@ -9,7 +9,7 @@
 
 `tests/fixtures/amnezia_agent` — snapshot собственного Undercore Amnezia-agent,
 включённый для тестов. Источник, назначение и контрольные суммы перечислены в
-[provenance.json](../../tests/fixtures/amnezia_agent/provenance.json).
+[provenance.json](https://github.com/UndercoreCo/orchestrator/blob/main/tests/fixtures/amnezia_agent/provenance.json).
 Это не пакет для установки VPN-узла.
 
 Формат экспорта Amnezia сверялся с закреплённой версией AmneziaVPN; ссылка на

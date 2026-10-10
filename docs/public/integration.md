@@ -101,5 +101,5 @@ recovery_cooldown` нужно выдержать настроенную пауз
 и не создавайте новый device_id для обхода этих состояний.
 
 Политика повторов: [ошибки](errors.md). Формальные тела и ответы:
-[OpenAPI](../../contracts/openapi.json). Совместимые маршруты v1 описаны отдельно
+[OpenAPI](https://github.com/UndercoreCo/orchestrator/blob/main/contracts/openapi.json). Совместимые маршруты v1 описаны отдельно
 в [API](api.md); новым интеграциям они не нужны.

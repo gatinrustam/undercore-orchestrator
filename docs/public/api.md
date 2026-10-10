@@ -8,12 +8,12 @@ HTTPS и ограничение источников; локально серв�
 Все ответы имеют `Cache-Control: private, no-store`; тела и заголовки авторизации
 не должны попадать в журналы reverse proxy и трассировки.
 
-Машиночитаемые модели: [JSON Schema](../../contracts/orchestrator-connections.schema.json).
+Машиночитаемые модели: [JSON Schema](https://github.com/UndercoreCo/orchestrator/blob/main/contracts/orchestrator-connections.schema.json).
 Версия URL `/internal/v2` и `schema_version: 1` — разные уровни версионирования.
 `GET /internal/v2/capabilities` показывает реально включённые возможности.
 
 Полный пример: [интеграция backend](integration.md). Статическая
-[OpenAPI 3.1](../../contracts/openapi.json) описывает v2, health и обзор узлов;
+[OpenAPI 3.1](https://github.com/UndercoreCo/orchestrator/blob/main/contracts/openapi.json) описывает v2, health и обзор узлов;
 совместимые операции v1 остаются в этом руководстве. [Обработка ошибок](errors.md).
 
 ## Операции
