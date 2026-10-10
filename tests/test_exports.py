@@ -16,6 +16,7 @@ from orchestrator.domain.contracts import ConnectionExport
 
 def setup(pilot):
     gateway, engine, state, body = pilot
+    engine.backend.server_public_key = base64.b64encode(bytes(range(32))).decode()
     engine.backend.config["parameters"] = {
         "Jc": 4,
         "Jmin": 40,

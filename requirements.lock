@@ -18,3 +18,6 @@ typing-inspection==0.4.4
 typing_extensions==4.16.0
 uvicorn==0.52.4
 segno==1.6.6
+cryptography==50.0.1
+cffi==2.1.1
+pycparser==3.0

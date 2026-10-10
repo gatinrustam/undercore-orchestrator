@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Independent VPN connection orchestration with durable node lifecycle"
 readme = "docs/public/quickstart.md"
 requires-python = ">=3.12"
-dependencies = ["fastapi==0.141.1", "httpx==0.28.1", "pydantic==2.13.5", "uvicorn==0.52.4", "segno==1.6.6"]
+dependencies = ["fastapi==0.141.1", "httpx==0.28.1", "pydantic==2.13.5", "uvicorn==0.52.4", "segno==1.6.6", "cryptography==50.0.1"]
 
 [project.scripts]
 undercore-orchestrator = "orchestrator.interfaces.cli.main:main"

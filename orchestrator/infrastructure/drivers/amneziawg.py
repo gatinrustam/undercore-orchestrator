@@ -5,6 +5,7 @@ from orchestrator.domain.contracts import TransportConfiguration
 from orchestrator.domain.models import OrchestratorError
 from orchestrator.application.ports import DriverCapabilities, NodeConnection
 from orchestrator.infrastructure.drivers.exports import AmneziaExports
+from orchestrator.infrastructure.drivers.amnezia_profile import guest_profile
 
 
 class AmneziaAgentDriver:
@@ -46,6 +47,8 @@ class AmneziaAgentDriver:
         return self.api.validate(data, external_id, client_id)
 
     def legacy_export(self, node, remote_id, format):
+        if format == "amnezia":
+            return guest_profile(self.legacy_export(node, remote_id, "configuration"))
         if format not in ("configuration", "amnezia"):
             raise OrchestratorError("unsupported_format", 422)
         body = self.api.request(node, "GET", "/v1/clients/" + remote_id + "/" + format, text=True)
