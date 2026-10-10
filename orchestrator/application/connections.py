@@ -1,7 +1,7 @@
 """Protocol-neutral internal service. The calling backend grants the slot; we route its access."""
 
 from datetime import datetime, timezone
-from orchestrator.domain.contracts import Connection, ConnectionConfiguration
+from orchestrator.domain.contracts import Connection, ConnectionConfiguration, ConnectionExport
 from orchestrator.domain.models import OrchestratorError
 from orchestrator.infrastructure.sqlite.locking import connection_lock
 
@@ -22,6 +22,7 @@ class Connections:
                     "idempotent_create": driver.capabilities.idempotent_create,
                     "enforces_expiry": driver.capabilities.enforces_expiry,
                     "confirmed_revoke": driver.capabilities.confirmed_revoke,
+                    "export_formats": list(driver.capabilities.export_formats),
                 }
                 for protocol, driver in sorted(self.gateway.drivers.drivers.items())
                 if any(n.protocol == protocol for n in self.gateway.nodes.values())
@@ -126,6 +127,35 @@ class Connections:
         return ConnectionConfiguration(
             **descriptor.model_dump(), revision=revision, configuration=configuration
         )
+
+    def export(self, connection_id, request):
+        with connection_lock(self.gateway.store, connection_id):
+            row = self.owned(connection_id, request.device_id)
+            self.gateway.require_settled(row)
+            from orchestrator.application.leases import NodeLeases
+
+            if NodeLeases(self.gateway).denied(row):
+                raise OrchestratorError("access_unavailable", 410)
+            node = self.gateway.node(row, issuance=True)
+            driver = self.gateway.drivers.for_node(node)
+            if request.format not in driver.capabilities.export_formats:
+                raise OrchestratorError("unsupported_format", 422)
+            descriptor = self.get(connection_id, request.device_id)
+            if descriptor.state != "active" or datetime.fromisoformat(
+                descriptor.expires_at.replace("Z", "+00:00")
+            ) <= datetime.now(timezone.utc):
+                raise OrchestratorError("access_unavailable", 410)
+            row = self.owned(connection_id, request.device_id)
+            document = driver.export(
+                node, row["remote_id"], request.format, request.qr_content_format
+            )
+            # An export never creates, renews or switches an assignment. Recheck expiry
+            # after the node request; disable/switch share the assignment lock.
+            if datetime.fromisoformat(descriptor.expires_at.replace("Z", "+00:00")) <= datetime.now(
+                timezone.utc
+            ):
+                raise OrchestratorError("access_unavailable", 410)
+            return ConnectionExport(**descriptor.model_dump(), document=document)
 
     def mutate(self, connection_id, device_id, operation, payload):
         row = self.owned(connection_id, device_id)

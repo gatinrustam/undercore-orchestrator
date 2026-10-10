@@ -2,7 +2,7 @@
 
 from typing import Protocol
 from dataclasses import dataclass
-from orchestrator.domain.contracts import TransportConfiguration
+from orchestrator.domain.contracts import TransportConfiguration, ExportDocument
 from orchestrator.domain.models import Node, Observation
 
 
@@ -13,6 +13,7 @@ class DriverCapabilities:
     idempotent_create: bool = False
     enforces_expiry: bool = False
     confirmed_revoke: bool = False
+    export_formats: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -38,4 +39,7 @@ class NodeDriver(Protocol):
     def mutate(self, node: Node, remote_id: str, operation: str, payload: dict) -> dict: ...
     def configuration(self, node: Node, remote_id: str) -> TransportConfiguration: ...
     def connection(self, node: Node, remote_id: str, binding_key: str) -> NodeConnection: ...
+    def export(
+        self, node: Node, remote_id: str, format: str, qr_content_format: str = "conf"
+    ) -> ExportDocument: ...
     def validate(self, data: dict, external_id=None, client_id=None) -> dict: ...

@@ -4,11 +4,16 @@ import re
 from orchestrator.domain.contracts import TransportConfiguration
 from orchestrator.domain.models import OrchestratorError
 from orchestrator.application.ports import DriverCapabilities, NodeConnection
+from orchestrator.infrastructure.drivers.exports import AmneziaExports
 
 
 class AmneziaAgentDriver:
     capabilities = DriverCapabilities(
-        "amneziawg", idempotent_create=True, enforces_expiry=True, confirmed_revoke=True
+        "amneziawg",
+        idempotent_create=True,
+        enforces_expiry=True,
+        confirmed_revoke=True,
+        export_formats=AmneziaExports.formats,
     )
 
     def __init__(self, api):
@@ -49,6 +54,15 @@ class AmneziaAgentDriver:
         ):
             raise OrchestratorError("node_response_invalid", 503)
         return body
+
+    def export(self, node, remote_id, format, qr_content_format="conf"):
+        return AmneziaExports().export(
+            lambda source: self.legacy_export(
+                node, remote_id, {"conf": "configuration", "amnezia-vpn": "amnezia"}[source]
+            ),
+            format,
+            qr_content_format,
+        )
 
     def connection(self, node, remote_id, binding_key):
         try:

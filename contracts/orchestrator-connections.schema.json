@@ -130,6 +130,167 @@
     "title": "ConfigurationRequest",
     "type": "object"
   },
+  "ExportRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "format": {
+        "enum": [
+          "conf",
+          "amnezia-vpn",
+          "qr"
+        ],
+        "title": "Format",
+        "type": "string"
+      },
+      "qr_content_format": {
+        "default": "conf",
+        "enum": [
+          "conf",
+          "amnezia-vpn"
+        ],
+        "title": "Qr Content Format",
+        "type": "string"
+      }
+    },
+    "required": [
+      "schema_version",
+      "device_id",
+      "format"
+    ],
+    "title": "ExportRequest",
+    "type": "object"
+  },
+  "ConnectionExport": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+      "ExportDocument": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "enum": [
+              "conf",
+              "amnezia-vpn",
+              "qr"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "media_type": {
+            "enum": [
+              "application/octet-stream",
+              "image/png"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          },
+          "extension": {
+            "enum": [
+              "conf",
+              "vpn",
+              "png"
+            ],
+            "title": "Extension",
+            "type": "string"
+          },
+          "encoding": {
+            "enum": [
+              "utf-8",
+              "base64"
+            ],
+            "title": "Encoding",
+            "type": "string"
+          },
+          "data": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Data",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "media_type",
+          "extension",
+          "encoding",
+          "data"
+        ],
+        "title": "ExportDocument",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": 1,
+        "default": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "connection_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Connection Id",
+        "type": "string"
+      },
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "node_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Node Id",
+        "type": "string"
+      },
+      "protocol": {
+        "enum": [
+          "amneziawg",
+          "trusttunnel"
+        ],
+        "title": "Protocol",
+        "type": "string"
+      },
+      "state": {
+        "enum": [
+          "pending",
+          "active",
+          "disabled",
+          "expired",
+          "conflict"
+        ],
+        "title": "State",
+        "type": "string"
+      },
+      "expires_at": {
+        "title": "Expires At",
+        "type": "string"
+      },
+      "document": {
+        "$ref": "#/$defs/ExportDocument"
+      }
+    },
+    "required": [
+      "connection_id",
+      "device_id",
+      "node_id",
+      "protocol",
+      "state",
+      "expires_at",
+      "document"
+    ],
+    "title": "ConnectionExport",
+    "type": "object"
+  },
   "RecoveryRequest": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$defs": {

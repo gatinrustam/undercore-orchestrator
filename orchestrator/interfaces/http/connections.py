@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from orchestrator.application.connections import Connections
 from orchestrator.domain.contracts import (
     ConfigurationRequest,
+    ExportRequest,
     DeviceRequest,
     SwitchRequest,
     RecoveryRequest,
@@ -61,6 +62,12 @@ def mount(app, gateway, validate_legacy_operation):
     async def configuration(connection_id: str, request: Request):
         value = await decode(request, ConfigurationRequest)
         result = await run_in_threadpool(service.configuration, connection_id, value)
+        return result.model_dump()
+
+    @app.post("/internal/v2/connections/{connection_id}/export")
+    async def export(connection_id: str, request: Request):
+        value = await decode(request, ExportRequest)
+        result = await run_in_threadpool(service.export, connection_id, value)
         return result.model_dump()
 
     @app.post("/internal/v2/connections/{connection_id}/recover")

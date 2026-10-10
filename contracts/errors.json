@@ -185,6 +185,11 @@
       503
     ]
   },
+  "qr_unavailable": {
+    "http_statuses": [
+      422
+    ]
+  },
   "recovery_cooldown": {
     "http_statuses": [
       429

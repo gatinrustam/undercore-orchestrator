@@ -63,6 +63,27 @@ class ConfigurationRequest(ClientCapabilities):
     device_id: Identifier
 
 
+class ExportRequest(Contract):
+    schema_version: VersionOne
+    device_id: Identifier
+    format: Literal["conf", "amnezia-vpn", "qr"]
+    qr_content_format: Literal["conf", "amnezia-vpn"] = "conf"
+
+    @model_validator(mode="after")
+    def qr_options(self):
+        if self.format != "qr" and self.qr_content_format != "conf":
+            raise ValueError("QR options require QR output")
+        return self
+
+
+class ExportDocument(Contract):
+    format: Literal["conf", "amnezia-vpn", "qr"]
+    media_type: Literal["application/octet-stream", "image/png"]
+    extension: Literal["conf", "vpn", "png"]
+    encoding: Literal["utf-8", "base64"]
+    data: str = Field(min_length=1, max_length=100000, repr=False)
+
+
 class RecoveryRequest(ConfigurationRequest):
     expected_revision: int = Field(ge=1, le=2147483647)
 
@@ -100,6 +121,10 @@ class Connection(Contract):
     expires_at: Timestamp
 
 
+class ConnectionExport(Connection):
+    document: ExportDocument = Field(repr=False)
+
+
 class ConnectionConfiguration(Connection):
     revision: int = Field(ge=1)
     configuration: TransportConfiguration = Field(repr=False)
@@ -121,6 +146,8 @@ def schemas():
         for model in (
             DeviceRequest,
             ConfigurationRequest,
+            ExportRequest,
+            ConnectionExport,
             RecoveryRequest,
             SwitchRequest,
             Connection,

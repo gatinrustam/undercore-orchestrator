@@ -71,3 +71,14 @@ Amnezia-agent отвечает на `GET /v1/clients/{id}/connection` JSON-об�
 схема или отсутствие no-store не вызывают downgrade. Проверка идёт на каждом
 запросе: отрицательный кэш возможностей узла и кэш секретных документов отсутствуют.
 Публичный контракт v2, ревизии и SQLite-схема не изменены.
+
+## Адаптеры экспорта
+
+`NodeDriver.export(node, remote_id, format, qr_content_format)` возвращает
+`ExportDocument`; `DriverCapabilities.export_formats` перечисляет возможности.
+Адаптер выбирает исходный документ и валидирует его. Общий renderer на Segno
+строит PNG из уже выбранных байтов, не знает о серверах, аккаунтах и протоколах.
+`AmneziaExports` допускает conf/amnezia-vpn/qr; `WireGuardExports` — conf/qr.
+HTTP-слой не содержит ветвления по этим протоколам. Прежние v1-маршруты остаются
+для совместимости; новый backend использует v2 export. Агент и VPN runtime
+для этого обновления не меняются.
