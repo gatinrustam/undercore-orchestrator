@@ -16,7 +16,7 @@ from app.main import create_app
 from app.backend import ConfigurationRenderer
 from orchestrator.domain.models import Node, OrchestratorError
 from orchestrator.infrastructure.drivers.amnezia_http import AgentAPI
-from orchestrator.application.gateway import AgentGateway
+from orchestrator.bootstrap import build_gateway as AgentGateway
 from orchestrator.infrastructure.sqlite.assignments import Assignments
 from orchestrator.interfaces.http.app import create_agent_app
 
@@ -97,7 +97,7 @@ def test_real_agent_create_restart_and_repeat_keep_one_peer_and_no_central_secre
     config = service.client(first["client_id"], "configuration")
     private = config.split("PrivateKey = ")[1].splitlines()[0]
     restarted = AgentGateway(
-        list(service.nodes.values()), Assignments(service.store.path.parent), service.api
+        list(service.nodes.values()), Assignments(service.store.path.parent), service.resources
     )
     assert restarted.create(body)["client_id"] == first["client_id"]
     assert len(engine.rows()) == len(engine.backend.peers) == len(service.store.rows()) == 1

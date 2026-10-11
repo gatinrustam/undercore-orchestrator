@@ -1,9 +1,11 @@
 """Protocol-neutral internal service. The calling backend grants the slot; we route its access."""
 
+from orchestrator.application.execution import bounded
+
 from datetime import datetime, timezone
+from orchestrator.application.telemetry import Stage, observed
 from orchestrator.domain.contracts import Connection, ConnectionConfiguration, ConnectionExport
 from orchestrator.domain.models import OrchestratorError
-from orchestrator.infrastructure.sqlite.locking import connection_lock
 
 
 class Connections:
@@ -29,6 +31,7 @@ class Connections:
             ],
         }
 
+    @bounded
     def create(self, request):
         try:
             future = datetime.fromisoformat(request.expires_at.replace("Z", "+00:00"))
@@ -90,12 +93,14 @@ class Connections:
         except ValueError:
             raise OrchestratorError("node_response_invalid", 503) from None
 
+    @bounded
     def get(self, connection_id, device_id):
         row = self.owned(connection_id, device_id)
         return self.describe(row, self.gateway.client(connection_id))
 
+    @bounded
     def configuration(self, connection_id, request):
-        with connection_lock(self.gateway.store, connection_id):
+        with self.gateway.store.lock(connection_id):
             return self.configuration_locked(connection_id, request)
 
     def configuration_locked(self, connection_id, request):
@@ -128,8 +133,10 @@ class Connections:
             **descriptor.model_dump(), revision=revision, configuration=configuration
         )
 
+    @observed(Stage.EXPORT, identity=lambda self, connection_id, request: (connection_id, "export"))
+    @bounded
     def export(self, connection_id, request):
-        with connection_lock(self.gateway.store, connection_id):
+        with self.gateway.store.lock(connection_id):
             row = self.owned(connection_id, request.device_id)
             self.gateway.require_settled(row)
             from orchestrator.application.leases import NodeLeases
@@ -157,6 +164,7 @@ class Connections:
                 raise OrchestratorError("access_unavailable", 410)
             return ConnectionExport(**descriptor.model_dump(), document=document)
 
+    @bounded
     def mutate(self, connection_id, device_id, operation, payload):
         row = self.owned(connection_id, device_id)
         # Legacy node APIs expect the binding's external identity, not the slot ID.
@@ -166,9 +174,10 @@ class Connections:
             payload = {**payload, "expected_external_id": row["external_id"]}
         return self.describe(row, self.gateway.client(connection_id, operation, payload))
 
+    @bounded
     def switch(self, connection_id, request):
         from orchestrator.application.switches import Switches
 
-        with connection_lock(self.gateway.store, connection_id):
+        with self.gateway.store.lock(connection_id):
             value = Switches(self.gateway).switch(connection_id, request)
             return self.describe(self.gateway.store.get(client_id=connection_id), value)

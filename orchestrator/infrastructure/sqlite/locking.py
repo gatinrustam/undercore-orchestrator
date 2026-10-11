@@ -1,5 +1,6 @@
 """Reentrant process/thread lock shared by export, lifecycle and node switches."""
 
+from orchestrator.application.execution import remaining
 import fcntl
 import hashlib
 import os
@@ -25,8 +26,10 @@ def connection_lock(store, client_id):
         return
     fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
-        deadline = time.monotonic() + 10
+        available = remaining()
+        deadline = time.monotonic() + min(10, available if available is not None else 10)
         while True:
+            remaining()
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break

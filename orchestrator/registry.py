@@ -1,3 +1,5 @@
-"""Compatibility import for earlier source releases."""
+"""Compatibility factory for earlier release scripts."""
 
-from orchestrator.application.nodes import *  # noqa: F403
+from orchestrator.bootstrap import build_registry as NodeRegistry
+
+__all__ = ["NodeRegistry"]

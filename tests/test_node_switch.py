@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from test_agent_gateway import Kernel
 from app.domain import Engine, Store, now, stamp
 from app.main import create_app
-from orchestrator.application.gateway import AgentGateway
+from orchestrator.bootstrap import build_gateway as AgentGateway
 from orchestrator.interfaces.http.app import create_agent_app
 from orchestrator.infrastructure.sqlite.assignments import Assignments
 from orchestrator.application.connections import Connections
@@ -117,7 +117,7 @@ def test_lost_response_recovers_same_switch_after_restart(pair, node, operation)
     with pytest.raises(OrchestratorError, match="switch_in_progress"):
         export(gateway, ident)
     restarted = AgentGateway(
-        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.api
+        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.resources
     )
     value = Connections(restarted).switch(ident, req)
     assert value.node_id == "b" and not engines["a"].backend.peers
@@ -236,7 +236,7 @@ def test_disable_intent_survives_target_outage_and_switch_retry(pair):
         gateway.client(ident, "disable")
     states["b"]["down"] = False
     restarted = AgentGateway(
-        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.api
+        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.resources
     )
     assert Connections(restarted).switch(ident, req).state == "disabled"
     assert not engines["a"].backend.peers and not engines["b"].backend.peers

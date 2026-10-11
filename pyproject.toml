@@ -9,7 +9,7 @@ description = "Independent VPN connection orchestration with durable node lifecy
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.12"
-dependencies = ["fastapi==0.141.1", "httpx==0.28.1", "pydantic==2.13.5", "uvicorn==0.52.4", "segno==1.6.6", "cryptography==50.0.1"]
+dependencies = ["fastapi==0.141.1", "httpx==0.28.1", "pydantic==2.13.5", "uvicorn==0.52.4", "segno==1.6.6", "cryptography==50.0.1", "prometheus-client==0.26.0"]
 
 [project.scripts]
 undercore-orchestrator = "orchestrator.interfaces.cli.main:main"
@@ -20,6 +20,9 @@ version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
 include = ["orchestrator*"]
+
+[tool.setuptools.package-data]
+"orchestrator.interfaces.http" = ["panel_assets/*.html", "panel_assets/*.css", "panel_assets/*.js"]
 
 [tool.ruff]
 target-version = "py312"
@@ -32,3 +35,14 @@ ignore = ["E741"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*.py" = ["F401", "F811", "E402"]
+
+[tool.mypy]
+python_version = "3.12"
+follow_imports = "silent"
+check_untyped_defs = true
+warn_unused_ignores = true
+files = ["orchestrator/domain", "orchestrator/application/ports.py", "orchestrator/application/repository_ports.py", "orchestrator/application/drivers.py", "orchestrator/infrastructure/sqlite", "orchestrator/infrastructure/drivers/amneziawg.py", "orchestrator/infrastructure/drivers/amnezia_leases.py", "orchestrator/infrastructure/credentials.py", "scripts/check_types.py"]
+
+[[tool.mypy.overrides]]
+module = ["orchestrator.application.ports", "orchestrator.application.repository_ports", "orchestrator.application.drivers", "orchestrator.infrastructure.drivers.amneziawg", "orchestrator.infrastructure.drivers.amnezia_leases", "scripts.check_types"]
+disallow_untyped_defs = true

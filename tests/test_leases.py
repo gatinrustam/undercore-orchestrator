@@ -7,7 +7,7 @@ from test_recovery import request
 from orchestrator.application.leases import NodeLeases, FENCE_GRACE_SECONDS
 from orchestrator.application.recovery import Recovery, reconcile
 from orchestrator.domain.models import OrchestratorError
-from orchestrator.application.gateway import AgentGateway
+from orchestrator.bootstrap import build_gateway as AgentGateway
 
 
 def enroll(gateway):
@@ -99,7 +99,7 @@ def test_lost_lease_response_keeps_conservative_bound_and_restart_fence(pair):
     states["a"]["down"] = True
     with pytest.raises(OrchestratorError):
         Recovery(gateway).recover(ident, request())
-    restarted = AgentGateway(list(gateway.nodes.values()), gateway.store, gateway.api)
+    restarted = AgentGateway(list(gateway.nodes.values()), gateway.store, gateway.resources)
     assert not NodeLeases(restarted).ready(restarted.nodes["a"])
     assert not engines["b"].rows()
 

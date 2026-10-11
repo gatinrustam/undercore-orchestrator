@@ -1,0 +1,134 @@
+{
+  "layers": {
+    "package": [],
+    "domain": [
+      "orchestrator.domain"
+    ],
+    "ports": [
+      "orchestrator.application.ports",
+      "orchestrator.application.telemetry",
+      "orchestrator.application.execution",
+      "orchestrator.application.repository_ports"
+    ],
+    "application": [
+      "orchestrator.application"
+    ],
+    "policy": [
+      "orchestrator.config.policy"
+    ],
+    "config": [
+      "orchestrator.config"
+    ],
+    "infrastructure": [
+      "orchestrator.infrastructure"
+    ],
+    "http": [
+      "orchestrator.interfaces.http"
+    ],
+    "cli": [
+      "orchestrator.interfaces.cli"
+    ],
+    "interfaces": [
+      "orchestrator.interfaces"
+    ],
+    "bootstrap": [
+      "orchestrator.bootstrap"
+    ],
+    "version": [
+      "orchestrator.version"
+    ],
+    "compatibility": [
+      "orchestrator.__main__",
+      "orchestrator.runtime",
+      "orchestrator.settings",
+      "orchestrator.assignments",
+      "orchestrator.registry",
+      "orchestrator.cli",
+      "orchestrator.leases",
+      "orchestrator.recovery"
+    ]
+  },
+  "allowed": {
+    "package": [],
+    "domain": [
+      "domain"
+    ],
+    "ports": [
+      "ports",
+      "domain"
+    ],
+    "application": [
+      "application",
+      "ports",
+      "domain",
+      "policy"
+    ],
+    "policy": [
+      "policy"
+    ],
+    "config": [
+      "config",
+      "policy",
+      "domain"
+    ],
+    "infrastructure": [
+      "infrastructure",
+      "domain",
+      "ports",
+      "policy"
+    ],
+    "http": [
+      "http",
+      "application",
+      "ports",
+      "domain",
+      "version"
+    ],
+    "cli": [
+      "cli",
+      "application",
+      "ports",
+      "domain",
+      "policy",
+      "config",
+      "infrastructure",
+      "bootstrap",
+      "version"
+    ],
+    "interfaces": [
+      "interfaces"
+    ],
+    "bootstrap": [
+      "bootstrap",
+      "application",
+      "ports",
+      "domain",
+      "policy",
+      "config",
+      "infrastructure",
+      "http",
+      "version"
+    ],
+    "version": [
+      "version"
+    ],
+    "compatibility": [
+      "bootstrap",
+      "application",
+      "config",
+      "infrastructure",
+      "cli"
+    ]
+  },
+  "external_allowlist": {
+    "domain": [
+      "pydantic"
+    ],
+    "ports": [],
+    "application": [],
+    "policy": [
+      "pydantic"
+    ]
+  },
+  "exceptions": []
+}

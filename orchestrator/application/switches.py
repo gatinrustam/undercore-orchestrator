@@ -4,12 +4,18 @@ The stable connection alias and canonical device stay unchanged. A failed/uncert
 operation must resume on its pinned target; it may never pick a third node.
 """
 
-import time
-import uuid
+from orchestrator.application.execution import (
+    bounded,
+    remaining,
+    DeadlineExceeded,
+    CapacityExceeded,
+)
+
+from orchestrator.application.telemetry import Stage, observed
+from orchestrator.domain.records import SwitchState
 from datetime import datetime, timezone
 from orchestrator.application.ports import NodeGrant
 from orchestrator.domain.models import OrchestratorError
-from orchestrator.infrastructure.sqlite.locking import connection_lock
 
 
 class Switches:
@@ -18,15 +24,11 @@ class Switches:
         self.store = gateway.store
 
     def pending(self, client_id):
-        with self.store.db() as db:
-            row = db.execute(
-                "SELECT * FROM switches WHERE client_id=? AND state NOT IN ('complete', 'cancelled')",
-                (client_id,),
-            ).fetchone()
-            return dict(row) if row else None
+        return self.store.switches.pending(client_id)
 
+    @bounded
     def switch(self, client_id, request):
-        with connection_lock(self.store, client_id):
+        with self.store.lock(client_id):
             row = self.store.get(client_id=client_id)
             if row is None or row["device_id"] != request.device_id:
                 raise OrchestratorError("not_found", 404)
@@ -34,11 +36,7 @@ class Switches:
 
             if not self.gateway.drivers.compatible(row["protocol"], request.capabilities):
                 raise OrchestratorError("client_upgrade_required", 409)
-            with self.store.db() as db:
-                saved = db.execute(
-                    "SELECT * FROM switches WHERE client_id=? AND operation_id=?",
-                    (client_id, request.idempotency_key),
-                ).fetchone()
+            saved, _ = self.store.switches.history(client_id, request.idempotency_key)
             if saved:
                 operation = dict(saved)
                 if operation["source_node"] != request.expected_node_id:
@@ -61,7 +59,10 @@ class Switches:
                 try:
                     source = self.gateway.client(client_id)
                 except OrchestratorError as error:
-                    if error.status != 503:
+                    if (
+                        isinstance(error, (DeadlineExceeded, CapacityExceeded))
+                        or error.status != 503
+                    ):
                         raise
                     from orchestrator.application.leases import NodeLeases
 
@@ -80,6 +81,7 @@ class Switches:
                             observations.append(self.gateway.drivers.for_node(node).observe(node))
                         except OrchestratorError:
                             pass
+                remaining()
                 operation = self.reserve(row, request, source, observations)
                 if source_offline:
                     NodeLeases(self.gateway).fence(self.gateway.node(row))
@@ -92,56 +94,13 @@ class Switches:
         )
 
     def reserve(self, row, request, source, observations):
-        with self.store.db() as db:
-            choices = []
-            for observation in observations:
-                if (
-                    not 0
-                    <= time.time() - observation.started_at
-                    <= self.gateway.policy.selection.observation_max_age_seconds
-                ):
-                    continue
-                node = observation.node
-                assigned = db.execute(
-                    "SELECT created_at FROM assignments WHERE node_id=?", (node.id,)
-                ).fetchall()
-                pending = db.execute(
-                    "SELECT created_at FROM switches WHERE target_node=? AND state NOT IN ('complete', 'cancelled')",
-                    (node.id,),
-                ).fetchall()
-                occupied = max(
-                    len(assigned) + len(pending),
-                    observation.total_peers
-                    + sum(r["created_at"] >= observation.started_at for r in [*assigned, *pending]),
-                )
-                capacity = min(node.capacity, observation.max_peers)
-                if occupied < capacity:
-                    choices.append((occupied / capacity, node.id, node.server_id))
-            if not choices:
-                raise OrchestratorError("no_alternative_node", 503)
-            _, target, identity = min(choices)
-            value = (
-                row["client_id"],
-                request.idempotency_key,
-                row["node_id"],
-                target,
-                identity,
-                "switch_" + uuid.uuid4().hex,
-                source["name"],
-                source["expires_at"],
-                "reserved",
-                time.time(),
-            )
-            db.execute(
-                "INSERT INTO switches (client_id,operation_id,source_node,target_node,target_server,binding_key,name,expires_at,state,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                value,
-            )
-            return dict(
-                db.execute(
-                    "SELECT * FROM switches WHERE client_id=? AND operation_id=?", value[:2]
-                ).fetchone()
-            )
+        return self.store.switches.reserve(row, request, source, observations)
 
+    @observed(
+        Stage.SWITCH,
+        identity=lambda self, row, operation: (row["client_id"], operation["operation_id"]),
+    )
+    @bounded
     def resume(self, row, operation):
         target = self.gateway.nodes.get(operation["target_node"])
         if (
@@ -158,11 +117,7 @@ class Switches:
             raise OrchestratorError("grant_expired", 410)
         if operation["state"] == "reserved":
             self.revoke_source(row)
-            with self.store.db() as db:
-                db.execute(
-                    "UPDATE switches SET state='source_revoked' WHERE client_id=? AND operation_id=?",
-                    (row["client_id"], operation["operation_id"]),
-                )
+            self.store.switches.state(operation, SwitchState.SOURCE_REVOKED)
         driver = self.gateway.drivers.for_node(target)
         grant = NodeGrant(operation["binding_key"], operation["name"], operation["expires_at"])
         value = driver.validate(driver.create(target, grant), external_id=grant.binding_key)
@@ -182,22 +137,7 @@ class Switches:
         else:
             # Check this driver's payload before publishing the new binding.
             driver.configuration(target, value["client_id"])
-        with self.store.db() as db:
-            db.execute(
-                "UPDATE assignments SET node_id=?, server_id=?, remote_id=?, binding_key=?, last_operation='switch', last_outcome='ok', checked_at=? WHERE client_id=?",
-                (
-                    target.id,
-                    target.server_id,
-                    value["client_id"],
-                    grant.binding_key,
-                    time.time(),
-                    row["client_id"],
-                ),
-            )
-            db.execute(
-                "UPDATE switches SET state='complete' WHERE client_id=? AND operation_id=?",
-                (row["client_id"], operation["operation_id"]),
-            )
+        self.store.switches.complete(row, operation, value["client_id"])
         from orchestrator.application.leases import NodeLeases
 
         NodeLeases(self.gateway).remember(self.store.get(client_id=row["client_id"]), value)
@@ -216,7 +156,7 @@ class Switches:
             if value["status"] not in ("disabled", "expired"):
                 raise OrchestratorError("revoke_unconfirmed", 503)
         except OrchestratorError as error:
-            if error.status != 503:
+            if isinstance(error, (DeadlineExceeded, CapacityExceeded)) or error.status != 503:
                 raise
             from orchestrator.application.leases import NodeLeases
 
@@ -227,11 +167,7 @@ class Switches:
     def disable_pending(self, row, operation):
         # Persist revocation intent BEFORE recovery; a restart must not publish an
         # active target if the business authority has already requested disable.
-        with self.store.db() as db:
-            db.execute(
-                "UPDATE switches SET disable_requested=1 WHERE client_id=? AND operation_id=?",
-                (row["client_id"], operation["operation_id"]),
-            )
+        self.store.switches.request_disable(operation)
         try:
             self.resume(row, {**operation, "disable_requested": 1})
         except OrchestratorError as error:
@@ -254,8 +190,4 @@ class Switches:
             )
             if value["status"] not in ("disabled", "expired"):
                 raise OrchestratorError("revoke_unconfirmed", 503)
-        with self.store.db() as db:
-            db.execute(
-                "UPDATE switches SET state='cancelled' WHERE client_id=? AND operation_id=?",
-                (row["client_id"], operation["operation_id"]),
-            )
+        self.store.switches.state(operation, SwitchState.CANCELLED)

@@ -8,4 +8,7 @@ if __name__ == "__main__":
     from orchestrator.application.recovery import reconcile
 
     service, _ = agent_service()
-    print(json.dumps(reconcile(service)))
+    try:
+        print(json.dumps(reconcile(service)))
+    finally:
+        service.close()

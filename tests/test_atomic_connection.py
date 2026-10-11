@@ -12,7 +12,7 @@ from orchestrator.domain.models import OrchestratorError
 def prepare(pilot, monkeypatch, transform=None):
     gateway, engine, state, body = pilot
     ident = gateway.create(body)["client_id"]
-    transport = gateway.api.transport
+    transport = gateway.resources.transport
     requests = []
 
     def handle(request):
@@ -21,7 +21,7 @@ def prepare(pilot, monkeypatch, transform=None):
             return transform(request, transport)
         return transport.handle_request(request)
 
-    gateway.api.transport = httpx.MockTransport(handle)
+    gateway.resources.transport = httpx.MockTransport(handle)
     reconciles = []
     real = engine.reconcile
 

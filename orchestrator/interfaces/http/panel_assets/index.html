@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Orchestrator · Обзор</title>
+    <link rel="stylesheet" href="/assets/panel.css">
+    <script src="/assets/commands.js" defer></script>
+    <script src="/assets/panel.js" defer>
+    </script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">UNDERCORE <span>ORCHESTRATOR</span>
+      </a>
+      <span class="read-only">Только просмотр</span>
+    </header>
+    <main>
+      <section id="login" class="login">
+        <p class="eyebrow">ЛОКАЛЬНАЯ ПАНЕЛЬ</p>
+        <h1>Система под контролем.</h1>
+        <p class="muted">Серверы, назначения и последние события — в одном месте.</p>
+        <form id="login-form">
+          <label for="token">Ключ доступа к панели</label>
+          <input id="token" name="token" type="password" autocomplete="current-password" required maxlength="256">
+          <button type="submit">Войти в панель <span aria-hidden="true">→</span>
+          </button>
+        </form>
+      </section>
+      <div id="dashboard" hidden>
+        <div class="heading">
+          <div>
+            <p class="eyebrow">ОБЗОР ИНФРАСТРУКТУРЫ</p>
+            <h1>Оркестратор</h1>
+            <p id="updated" class="muted">Ожидание данных</p>
+          </div>
+          <div class="actions">
+            <button id="refresh" class="secondary">Обновить</button>
+            <button id="logout" class="secondary">Выйти</button>
+          </div>
+        </div>
+        <div id="stats" class="stats">
+        </div>
+        <section id="management" class="operator-tools" hidden>
+          <p class="muted">Режим управления. Изменения записываются в журнал действий.</p>
+          <div class="actions">
+            <button id="add-node">Добавить сервер</button>
+            <button id="edit-policy" class="secondary">Политики</button>
+            <button id="show-audit" class="secondary">Журнал действий</button>
+          </div>
+        </section>
+        <p class="notice">Данные локального журнала. Назначение сервера не подтверждает доступность туннеля или интернета у пользователя.</p>
+        <nav aria-label="Разделы">
+          <button data-tab="nodes" aria-pressed="true">Серверы</button>
+          <button data-tab="connections" aria-pressed="false">Подключения</button>
+          <button data-tab="events" aria-pressed="false">События</button>
+        </nav>
+        <section id="nodes" class="tab">
+          <div class="section-heading">
+            <h2>Серверы</h2>
+            <span id="nodes-range" class="muted">
+            </span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Узел</th>
+                  <th>Регион / протокол</th>
+                  <th>Режим</th>
+                  <th>Назначения / лимит</th>
+                  <th>Разрешение узла</th>
+                </tr>
+              </thead>
+              <tbody id="nodes-body">
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <button id="nodes-prev" class="secondary">← Назад</button>
+            <button id="nodes-next" class="secondary">Далее →</button>
+          </div>
+        </section>
+        <section id="connections" class="tab" hidden>
+          <div class="section-heading">
+            <h2>Подключения</h2>
+            <span id="connections-range" class="muted">
+            </span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Подключение</th>
+                  <th>Узел</th>
+                  <th>Состояние назначения</th>
+                  <th>Ревизия</th>
+                  <th>Последняя операция</th>
+                  <th>Время проверки</th>
+                </tr>
+              </thead>
+              <tbody id="connections-body">
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <button id="connections-prev" class="secondary">← Назад</button>
+            <button id="connections-next" class="secondary">Далее →</button>
+          </div>
+        </section>
+        <section id="events" class="tab" hidden>
+          <div class="section-heading">
+            <h2>Последние события</h2>
+            <span class="muted">До 100 записей</span>
+          </div>
+          <p id="event-notice" class="muted">
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Время</th>
+                  <th>Этап / действие</th>
+                  <th>Результат</th>
+                  <th>Длительность</th>
+                  <th>ID запроса</th>
+                </tr>
+              </thead>
+              <tbody id="events-body">
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+      <p id="message" role="status" aria-live="polite">
+      </p>
+      <footer>Независимая панель Orchestrator <span>·</span> Без доступа к ключам туннелей</footer>
+    <dialog id="operator-dialog">
+      <form id="operator-form">
+        <h2 id="operator-title"></h2>
+        <p id="operator-notice" class="muted"></p>
+        <div id="operator-fields"></div>
+        <p id="operator-error" role="status"></p>
+        <div class="actions">
+          <button id="operator-cancel" type="button" class="secondary">Закрыть</button>
+          <button id="operator-submit" type="submit">Подтвердить</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+  </body>
+</html>

@@ -2,7 +2,7 @@
 """Root-only immutable release update. Credentials, nodes and live journal stay put.
 
 No git pull in runtime, no database restore on rollback, no node API mutations.
-Only reviewed additive lease tables may be introduced; existing assignments stay unchanged.
+Schema compatibility is checked before cutover; migrations are rehearsed on snapshots.
 """
 
 import argparse
@@ -36,6 +36,32 @@ UNITS = (
 MAX_BYTES = 8 * 1024 * 1024
 
 
+def storage_contract(info):
+    # The old journal_schema field described lease support, not PRAGMA user_version.
+    # Schema 1 retains those tables/columns; old source releases ignore user_version.
+    value = info.get("storage", {"min_read": 0, "max_read": 1, "write": 0})
+    if not isinstance(value, dict) or set(value) != {"min_read", "max_read", "write"}:
+        raise ValueError("release_storage_invalid")
+    if (
+        any(type(v) is not int for v in value.values())
+        or not 0 <= value["min_read"] <= value["write"] <= value["max_read"]
+    ):
+        raise ValueError("release_storage_invalid")
+    return value
+
+
+def check_storage(journal, incoming, previous):
+    target, rollback = storage_contract(incoming), storage_contract(previous)
+    with sqlite3.connect(journal.as_uri() + "?mode=ro", uri=True) as db:
+        version = db.execute("PRAGMA user_version").fetchone()[0]
+    if not target["min_read"] <= version <= target["max_read"]:
+        raise ValueError("journal_schema_unsupported")
+    # A failed health check must be able to run old code against the new journal.
+    resulting = max(version, target["write"])
+    if not rollback["min_read"] <= resulting <= rollback["max_read"]:
+        raise ValueError("rollback_schema_incompatible")
+
+
 def inspect_archive(path, digest):
     if path.stat().st_size > MAX_BYTES or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
         raise ValueError("archive_checksum_invalid")
@@ -64,6 +90,12 @@ def inspect_archive(path, digest):
         or info["journal_schema"] not in (1, 2)
     ):
         raise ValueError("release_metadata_invalid")
+    storage_contract(info)
+    if (
+        "storage" in info
+        and json.loads(result.get("contracts/storage.json", b"null")) != info["storage"]
+    ):
+        raise ValueError("release_storage_invalid")
     if info["files"] != {k: hashlib.sha256(v).hexdigest() for k, v in result.items()}:
         raise ValueError("release_manifest_invalid")
     if result["VERSION"].decode().strip() != info["version"]:
@@ -137,6 +169,7 @@ def update(archive, digest, adopt_existing=False):
     previous = (ROOT / "current").resolve(strict=True)
     if previous.parent != ROOT / "releases":
         raise ValueError("unexpected_current_path")
+    prior = {}
     prior_manifest = previous / "release.json"
     if prior_manifest.exists():
         prior = json.loads(prior_manifest.read_text())
@@ -155,6 +188,7 @@ def update(archive, digest, adopt_existing=False):
         raise ValueError("unexpected_state_directory")
     state = Path(settings["state_directory"])
     journal = state / "assignments.sqlite3"
+    check_storage(journal, info, prior)
     # Once permissions have been granted, rollback must retain their heartbeat/fencing implementation.
     with sqlite3.connect(journal.as_uri() + "?mode=ro", uri=True) as db:
         if db.execute("SELECT 1 FROM sqlite_master WHERE name='control_leases'").fetchone():
@@ -208,23 +242,13 @@ def update(archive, digest, adopt_existing=False):
     # Reject any implicit schema/data migration before stopping the current writer.
     code = """import sqlite3,sys
 from pathlib import Path
+from orchestrator.infrastructure.sqlite.upgrade import rehearse
 from orchestrator.assignments import Assignments
 from orchestrator.registry import NodeRegistry
 from orchestrator.settings import Settings
 p=Path(sys.argv[1])
-def state():
- with sqlite3.connect(p/'assignments.sqlite3') as db:
-  schema=db.execute('SELECT type,name,sql FROM sqlite_master ORDER BY name').fetchall()
-  tables=[r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
-  rows={t:db.execute('SELECT * FROM '+t+' ORDER BY rowid').fetchall() for t in tables}
-  return schema,rows
-before=state();store=Assignments(p)
-NodeRegistry(store,Settings.model_validate_json(Path(sys.argv[2]).read_bytes()).nodes)
-after=state()
-assert all(after[1].get(t)==rows for t,rows in before[1].items()), 'Existing journal rows changed'
-added=set(after[0])-set(before[0]);removed=set(before[0])-set(after[0])
-allowed={'control_leases','access_cache','retired_bindings','node_registry','registry_meta'}
-assert not removed and all((name in allowed or name.startswith('sqlite_autoindex_') and any(name.startswith('sqlite_autoindex_'+t+'_') for t in allowed)) for _,name,_ in added), 'Migration requires separate review'
+rehearse(p)
+NodeRegistry(Assignments(p),Settings.model_validate_json(Path(sys.argv[2]).read_bytes()).nodes)
 """
     run([python, "-c", code, str(preflight), str(SETTINGS)], cwd=release)
     (backup / "settings.json").write_bytes(settings_before)
@@ -249,6 +273,11 @@ assert not removed and all((name in allowed or name.startswith('sqlite_autoindex
             run(["systemctl", "stop", UNITS[4], UNITS[3]], timeout=120)
         run(["systemctl", "stop", UNITS[0]])
         snapshot(journal, backup / "assignments.sqlite3")
+        # Rehearse again against the final stopped snapshot: writers may have
+        # changed the journal while dependencies/preflight were being prepared.
+        check_storage(journal, info, prior)
+        shutil.copyfile(backup / "assignments.sqlite3", preflight / "assignments.sqlite3")
+        run([python, "-c", code, str(preflight), str(SETTINGS)], cwd=release)
         identity = (journal.stat().st_dev, journal.stat().st_ino)
         changed = True
         for unit in UNITS:
@@ -307,6 +336,11 @@ assert not removed and all((name in allowed or name.startswith('sqlite_autoindex
                     path.chmod(0o644)
                 else:
                     path.unlink(missing_ok=True)
+            with sqlite3.connect(journal.as_uri() + "?mode=ro", uri=True) as db:
+                live_version = db.execute("PRAGMA user_version").fetchone()[0]
+            supported = storage_contract(prior)
+            if not supported["min_read"] <= live_version <= supported["max_read"]:
+                raise RuntimeError("rollback_schema_incompatible_services_stopped") from None
             activate(previous)
             if (backup / "orchestratorctl").exists():
                 shutil.copyfile(backup / "orchestratorctl", cli)

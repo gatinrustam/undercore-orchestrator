@@ -33,25 +33,6 @@ def document():
         schemas.update(schema.pop("$defs", {}))
         schemas[name] = schema
     schemas["Error"] = object_schema({"detail": {"type": "string"}})
-    schemas["DeviceOperation"] = object_schema({"device_id": IDENTIFIER})
-    schemas["RenewRequest"] = object_schema(
-        {
-            "device_id": IDENTIFIER,
-            "expires_at": schemas["DeviceRequest"]["properties"]["expires_at"],
-            "idempotency_key": {
-                "type": "string",
-                "pattern": "^[A-Za-z0-9_:.+-]{1,160}$",
-            },
-        }
-    )
-    schemas["ReplaceRequest"] = object_schema(
-        {
-            **schemas["RenewRequest"]["properties"],
-            "expected_external_id": IDENTIFIER,
-            "allow_create": {"type": "boolean"},
-        },
-        ["device_id", "expires_at", "idempotency_key", "expected_external_id"],
-    )
     schemas["Health"] = object_schema(
         {
             "status": {"const": "ok"},
@@ -235,6 +216,26 @@ def document():
             request,
             description,
         )
+    paths["/internal/v1/metrics"] = {
+        "get": {
+            "operationId": "metrics",
+            "summary": "Local operational metrics; no VPN node probes",
+            "responses": {
+                "200": {
+                    "description": "Prometheus text exposition",
+                    "content": {"text/plain": {"schema": {"type": "string"}}},
+                },
+                "401": {"description": "Missing or invalid backend token"},
+            },
+        }
+    }
+    for operations in paths.values():
+        for operation in operations.values():
+            for response in operation["responses"].values():
+                response.setdefault("headers", {})["X-Request-ID"] = {
+                    "description": "Server-generated correlation ID; caller input is not trusted",
+                    "schema": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+                }
     return {
         "openapi": "3.1.0",
         "info": {

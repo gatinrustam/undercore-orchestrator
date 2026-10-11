@@ -6,7 +6,8 @@ import tarfile
 import sqlite3
 import pytest
 
-from orchestrator.config.settings import load_settings, read_secret
+from orchestrator.bootstrap import load_settings
+from orchestrator.infrastructure.secrets import read_secret
 from orchestrator.interfaces.cli import main as cli
 from orchestrator.infrastructure.sqlite.assignments import Assignments
 from scripts import update
@@ -28,7 +29,9 @@ def settings_file(tmp_path):
 
 def test_private_secrets_and_safe_configuration(settings_file):
     value = load_settings(settings_file)
-    assert len(value.validate_nodes()) == 1
+    from orchestrator.infrastructure.settings import validate_nodes
+
+    assert len(validate_nodes(value)) == 1
     secret = Path(value.backend_token_file)
     secret.chmod(0o644)
     with pytest.raises(ValueError):
@@ -172,7 +175,19 @@ def test_release_rejects_links(tmp_path):
         update.inspect_archive(path, hashlib.sha256(path.read_bytes()).hexdigest())
 
 
-def test_failed_health_rolls_back_code_without_restoring_live_journal(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        "unhealthy",
+        "healthy",
+        "preflight_failed",
+        "stopped_preflight_failed",
+        "incompatible_live_schema",
+    ],
+)
+def test_failed_health_rolls_back_code_without_restoring_live_journal(
+    tmp_path, monkeypatch, outcome
+):
     root = tmp_path / "app"
     releases = root / "releases"
     previous = releases / "previous"
@@ -230,6 +245,12 @@ def test_failed_health_rolls_back_code_without_restoring_live_journal(tmp_path, 
 
     def run(args, **kwargs):
         calls.append(args)
+        if len(args) > 1 and args[1] == "-c":
+            count = sum(len(c) > 1 and c[1] == "-c" for c in calls)
+            if (outcome == "preflight_failed" and count == 1) or (
+                outcome == "stopped_preflight_failed" and count == 2
+            ):
+                raise RuntimeError("synthetic_preflight_failed")
         if (
             args[:3] == ["systemctl", "start", update.UNITS[0]]
             and (root / "current").resolve() != previous
@@ -237,23 +258,43 @@ def test_failed_health_rolls_back_code_without_restoring_live_journal(tmp_path, 
             # A live write after activation must survive a failed rollout.
             with sqlite3.connect(journal) as db:
                 db.execute("INSERT INTO marker VALUES ('live')")
+                if outcome == "incompatible_live_schema":
+                    db.execute("PRAGMA user_version=2")
         return b""
 
     monkeypatch.setattr(update, "run", run)
     monkeypatch.setattr(update.time, "sleep", lambda _: None)
 
     def unavailable(*a, **kw):
+        if outcome == "healthy":
+            return io.BytesIO(json.dumps({"status": "ok", "version": "0.1.0"}).encode())
         raise OSError("offline")
 
     monkeypatch.setattr(update.urllib.request, "urlopen", unavailable)
     path, digest = archive(tmp_path)
-    with pytest.raises(ValueError, match="unhealthy"):
-        update.update(path, digest, True)
-    assert (root / "current").resolve() == previous
-    assert all((units / u).read_text() == "old unit" for u in update.UNITS)
+    if outcome == "healthy":
+        assert update.update(path, digest, True)["status"] == "updated"
+        assert (root / "current").resolve() != previous
+        assert ["systemctl", "start", update.UNITS[1]] in calls
+    else:
+        with pytest.raises(
+            (ValueError, RuntimeError),
+            match="unhealthy|preflight_failed|rollback_schema_incompatible",
+        ):
+            update.update(path, digest, True)
+        if outcome == "incompatible_live_schema":
+            assert (root / "current").resolve() != previous
+            assert sum(c == ["systemctl", "start", update.UNITS[0]] for c in calls) == 1
+        else:
+            assert (root / "current").resolve() == previous
+        assert all((units / u).read_text() == "old unit" for u in update.UNITS)
     with sqlite3.connect(journal) as db:
-        assert db.execute("SELECT value FROM marker").fetchall() == [("before",), ("live",)]
-    assert ["systemctl", "start", update.UNITS[2]] in calls
+        expected = [("before",)] if "preflight" in outcome else [("before",), ("live",)]
+        assert db.execute("SELECT value FROM marker").fetchall() == expected
+    if outcome == "preflight_failed":
+        assert not any(c[0] == "systemctl" for c in calls)
+    elif outcome not in ("healthy", "incompatible_live_schema"):
+        assert ["systemctl", "start", update.UNITS[2]] in calls
 
 
 def test_retired_admin_key_is_not_required_for_startup(settings_file):
@@ -270,6 +311,7 @@ def test_additive_upgrade_preserves_existing_journal_and_seeds_inventory(setting
     data = json.loads(settings_file.read_text())
     store = Assignments(data["state_directory"])
     with store.db() as db:
+        db.execute("PRAGMA user_version=0")  # Simulate an actual unversioned release.
         for table in ("control_leases", "access_cache", "retired_bindings"):
             db.execute("DROP TABLE " + table)
     code = next(

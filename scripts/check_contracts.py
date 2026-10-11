@@ -41,3 +41,13 @@ assert json.loads((root / "contracts/openapi.json").read_text()) == document(), 
     "OpenAPI is stale; run python scripts/export_openapi.py"
 )
 print("Offline OpenAPI verified")
+
+# Storage metadata is independently versioned from HTTP and lease capabilities.
+from orchestrator.infrastructure.sqlite.migrations import CURRENT_SCHEMA, MIN_SCHEMA  # noqa: E402
+
+assert json.loads((root / "contracts/storage.json").read_text()) == {
+    "min_read": MIN_SCHEMA,
+    "max_read": CURRENT_SCHEMA,
+    "write": CURRENT_SCHEMA,
+}, "Storage release contract is stale"
+print("Storage schema contract verified")

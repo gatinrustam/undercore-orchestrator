@@ -1,5 +1,10 @@
 """Amnezia implementation of the node lifecycle port."""
 
+from orchestrator.domain.models import Node, Observation
+from orchestrator.domain.records import NodeAccess, Mutation
+from orchestrator.domain.contracts import ExportDocument
+from orchestrator.application.ports import NodeGrant
+from orchestrator.infrastructure.drivers.amnezia_http import AgentAPI
 import re
 from orchestrator.domain.contracts import TransportConfiguration
 from orchestrator.domain.models import OrchestratorError
@@ -17,36 +22,45 @@ class AmneziaAgentDriver:
         export_formats=AmneziaExports.formats,
     )
 
-    def __init__(self, api):
+    def __init__(self, api: AgentAPI) -> None:
         self.api = api
 
-    def observe(self, node):
+    def verify(self, node: Node) -> None:
+        self.api.verify(node)
+
+    def observe(self, node: Node) -> Observation:
         return self.api.observe(node)
 
-    def list(self, node):
+    def list(self, node: Node) -> list[NodeAccess]:
         return self.api.list(node)
 
-    def create(self, node, grant):
+    def create(self, node: Node, grant: NodeGrant) -> NodeAccess:
         payload = {
             "external_id": grant.binding_key,
             "device_id": "account-v1",
             "name": grant.name,
             "expires_at": grant.expires_at,
         }
-        return self.api.request(node, "POST", "/v1/clients", payload)
+        return self.validate(self.api.request(node, "POST", "/v1/clients", payload))
 
-    def get(self, node, remote_id):
-        return self.api.request(node, "GET", "/v1/clients/" + remote_id)
+    def get(self, node: Node, remote_id: str) -> NodeAccess:
+        return self.validate(self.api.request(node, "GET", "/v1/clients/" + remote_id))
 
-    def mutate(self, node, remote_id, operation, payload):
-        if operation not in ("renew", "replace", "enable", "disable"):
+    def mutate(
+        self, node: Node, remote_id: str, operation: str, payload: dict[str, object]
+    ) -> NodeAccess:
+        if operation not in {value.value for value in Mutation}:
             raise OrchestratorError("unsupported_operation", 422)
-        return self.api.request(node, "POST", "/v1/clients/" + remote_id + "/" + operation, payload)
+        return self.validate(
+            self.api.request(node, "POST", "/v1/clients/" + remote_id + "/" + operation, payload)
+        )
 
-    def validate(self, data, external_id=None, client_id=None):
+    def validate(
+        self, data: object, external_id: str | None = None, client_id: str | None = None
+    ) -> NodeAccess:
         return self.api.validate(data, external_id, client_id)
 
-    def legacy_export(self, node, remote_id, format):
+    def legacy_export(self, node: Node, remote_id: str, format: str) -> str:
         if format == "amnezia":
             return guest_profile(self.legacy_export(node, remote_id, "configuration"))
         if format not in ("configuration", "amnezia"):
@@ -58,7 +72,9 @@ class AmneziaAgentDriver:
             raise OrchestratorError("node_response_invalid", 503)
         return body
 
-    def export(self, node, remote_id, format, qr_content_format="conf"):
+    def export(
+        self, node: Node, remote_id: str, format: str, qr_content_format: str = "conf"
+    ) -> ExportDocument:
         return AmneziaExports().export(
             lambda source: self.legacy_export(
                 node, remote_id, {"conf": "configuration", "amnezia-vpn": "amnezia"}[source]
@@ -67,7 +83,7 @@ class AmneziaAgentDriver:
             qr_content_format,
         )
 
-    def connection(self, node, remote_id, binding_key):
+    def connection(self, node: Node, remote_id: str, binding_key: str) -> NodeConnection:
         try:
             snapshot = self.api.connection(node, remote_id)
         except OrchestratorError as error:
@@ -95,7 +111,7 @@ class AmneziaAgentDriver:
             TransportConfiguration(protocol="amneziawg", format="awg-quick", data=body),
         )
 
-    def configuration(self, node, remote_id):
+    def configuration(self, node: Node, remote_id: str) -> TransportConfiguration:
         return TransportConfiguration(
             protocol="amneziawg",
             format="awg-quick",

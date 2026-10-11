@@ -1,20 +1,24 @@
 """Durable routing journal; contains no VPN keys or configurations."""
 
+from orchestrator.application.execution import remaining, DeadlineExceeded
 import os
 import hashlib
 import json
 import sqlite3
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, closing, AbstractContextManager
+from typing import Mapping, Sequence, Iterator, cast
+from orchestrator.domain.records import Assignment
+from orchestrator.domain.models import Observation
+from orchestrator.domain.contracts import TransportConfiguration
+from orchestrator.config.policy import RuntimePolicy
 from pathlib import Path
 from orchestrator.domain.models import OrchestratorError
 
 
 class Assignments:
-    def __init__(self, directory, policy=None):
-        from orchestrator.config.policy import RuntimePolicy
-
+    def __init__(self, directory: str | Path, policy: RuntimePolicy | None = None) -> None:
         self.policy = policy or RuntimePolicy()
         directory = Path(directory)
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -28,10 +32,28 @@ class Assignments:
         from orchestrator.infrastructure.sqlite.migrations import migrate
 
         migrate(self)
+        from orchestrator.infrastructure.sqlite.switches import SwitchRepository
+        from orchestrator.infrastructure.sqlite.leases import LeaseRepository
+        from orchestrator.infrastructure.sqlite.inventory import InventoryRepository
+
+        self.switches = SwitchRepository(self)
+        self.leases = LeaseRepository(self)
+        self.inventory = InventoryRepository(self)
+
+    def lock(self, identity: str) -> AbstractContextManager[None]:
+        from orchestrator.infrastructure.sqlite.locking import connection_lock
+
+        return connection_lock(self, identity)
 
     @contextmanager
-    def db(self):
-        db = sqlite3.connect(self.path, timeout=10)
+    def db(self) -> Iterator[sqlite3.Connection]:
+        # A remote mutation may have completed at the deadline. Still allow an
+        # uncontended final journal write; never abandon it just due to the clock.
+        try:
+            available = remaining()
+        except DeadlineExceeded:
+            available = 0
+        db = sqlite3.connect(self.path, timeout=min(10, available if available is not None else 10))
         db.row_factory = sqlite3.Row
         try:
             db.execute("PRAGMA synchronous=FULL")
@@ -44,13 +66,16 @@ class Assignments:
         finally:
             db.close()
 
-    def rows(self):
+    def rows(self) -> list[Assignment]:
         with self.db() as db:
             return [
-                dict(row) for row in db.execute("SELECT * FROM assignments ORDER BY created_at")
+                cast(Assignment, dict(row))
+                for row in db.execute("SELECT * FROM assignments ORDER BY created_at")
             ]
 
-    def get(self, external_id=None, client_id=None):
+    def get(
+        self, external_id: str | None = None, client_id: str | None = None
+    ) -> Assignment | None:
         with self.db() as db:
             row = db.execute(
                 "SELECT * FROM assignments WHERE external_id=?"
@@ -58,9 +83,15 @@ class Assignments:
                 else "SELECT * FROM assignments WHERE client_id=?",
                 (external_id if external_id is not None else client_id,),
             ).fetchone()
-            return dict(row) if row else None
+            return cast(Assignment, dict(row)) if row else None
 
-    def reserve(self, payload, observations, device_id=None, protocol="amneziawg"):
+    def reserve(
+        self,
+        payload: Mapping[str, str],
+        observations: Sequence[Observation],
+        device_id: str | None = None,
+        protocol: str = "amneziawg",
+    ) -> Assignment:
         device_id = device_id or payload["external_id"]
         with self.db() as db:
             existing = db.execute(
@@ -69,7 +100,7 @@ class Assignments:
             if existing:
                 if existing["device_id"] != device_id or existing["protocol"] != protocol:
                     raise OrchestratorError("assignment_identity_conflict", 409)
-                return dict(existing)
+                return cast(Assignment, dict(existing))
             if db.execute(
                 "SELECT 1 FROM assignments WHERE device_id=? AND protocol=?", (device_id, protocol)
             ).fetchone():
@@ -118,13 +149,16 @@ class Assignments:
                     payload["external_id"],
                 ),
             )
-            return dict(
-                db.execute(
-                    "SELECT * FROM assignments WHERE external_id=?", (payload["external_id"],)
-                ).fetchone()
+            return cast(
+                Assignment,
+                dict(
+                    db.execute(
+                        "SELECT * FROM assignments WHERE external_id=?", (payload["external_id"],)
+                    ).fetchone()
+                ),
             )
 
-    def bind(self, row, remote_id):
+    def bind(self, row: Assignment, remote_id: str) -> None:
         with self.db() as db:
             changed = db.execute(
                 "UPDATE assignments SET remote_id=? WHERE client_id=? AND (remote_id IS NULL OR remote_id=?)",
@@ -133,23 +167,25 @@ class Assignments:
             if changed != 1:
                 raise OrchestratorError("remote_identity_conflict", 409)
 
-    def record(self, row, operation, outcome):
+    def record(self, row: Assignment, operation: str, outcome: str) -> None:
         with self.db() as db:
             db.execute(
                 "UPDATE assignments SET last_operation=?, last_outcome=?, checked_at=? WHERE client_id=?",
                 (operation, outcome, time.time(), row["client_id"]),
             )
 
-    def for_device(self, device_id):
+    def for_device(self, device_id: str) -> list[Assignment]:
         with self.db() as db:
             return [
-                dict(row)
+                cast(Assignment, dict(row))
                 for row in db.execute(
                     "SELECT * FROM assignments WHERE device_id=? ORDER BY created_at", (device_id,)
                 )
             ]
 
-    def configuration_revision(self, row, configuration, expires_at):
+    def configuration_revision(
+        self, row: Assignment, configuration: TransportConfiguration, expires_at: str
+    ) -> int:
         # Persist only a digest and counter, never credentials or configuration bytes.
         serialized = json.dumps(
             {"configuration": configuration.model_dump(), "expires_at": expires_at},
@@ -173,3 +209,22 @@ class Assignments:
                     (digest, revision, row["client_id"]),
                 )
             return revision
+
+    def diagnostic_counts(self) -> dict[str, int | float]:
+        """Read local counts only; do not take a write reservation or contact nodes."""
+        with closing(
+            sqlite3.connect(self.path.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.1)
+        ) as db:
+            db.execute("PRAGMA query_only=ON")
+            db.execute("BEGIN")
+            creates = db.execute(
+                "SELECT COUNT(*) FROM assignments WHERE remote_id IS NULL"
+            ).fetchone()[0]
+            switches, oldest = db.execute(
+                "SELECT COUNT(*), MIN(created_at) FROM switches WHERE state NOT IN ('complete','cancelled')"
+            ).fetchone()
+        return {
+            "pending_creates": creates,
+            "pending_switches": switches,
+            "oldest_pending_seconds": max(0, time.time() - oldest) if oldest is not None else 0,
+        }

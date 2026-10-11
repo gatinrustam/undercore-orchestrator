@@ -20,6 +20,12 @@
 
 | Путь | По умолчанию | Допустимо |
 |---|---:|---:|
+| agents.operation_timeout_seconds | 30 | 5–60 |
+| agents.queue_timeout_seconds | 2 | 1–5 |
+| agents.max_concurrent_requests | 16 | 2–64 |
+| agents.max_concurrent_per_node | 4 | 1–32, строго меньше общего лимита |
+| agents.max_pending_per_node | 8 | 1–64, не меньше узловой параллельности и меньше общего pending-лимита |
+| agents.max_pending_requests | 64 | 2–256, не меньше общего лимита |
 | agents.connect_timeout_seconds | 4 | 1–10 |
 | agents.response_timeout_seconds | 12 | 1–15 |
 | recovery.cooldown_seconds | 1800 | 60–86400 |
@@ -31,7 +37,8 @@
 | leases.fence_grace_seconds | 125 | 125–600 |
 | leases.heartbeat_workers | 64 | фиксировано 64 |
 
-По умолчанию поведение совпадает с прежним релизом. Изменения применяются после
+Старые настройки без новых полей принимаются с указанными значениями по умолчанию.
+Новые ограничения меняют поведение при перегрузке и медленных ответах. Изменения применяются после
 перезапуска API и рабочих процессов; не изменяйте настройки одного процесса отдельно.
 Защитное ожидание равно max_node_lease_seconds + fence_grace_seconds. Его минимальная
 граница связана с watchdog и остановкой на узле; не является обычным timeout HTTP.

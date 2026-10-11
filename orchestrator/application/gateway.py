@@ -1,19 +1,34 @@
 """Internal VpnGateway-compatible facade. The calling backend remains the entitlement authority."""
 
+from orchestrator.application.execution import bounded, remaining
+
+from orchestrator.application.repository_ports import Journal
+from orchestrator.application.ports import Resources
+from orchestrator.application.drivers import DriverRegistry, LeaseRegistry
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
+from orchestrator.application.telemetry import NullObserver, Stage, observed, span
 from orchestrator.domain.models import OrchestratorError
-from orchestrator.infrastructure.sqlite.locking import connection_lock
-from orchestrator.infrastructure.drivers.amneziawg import AmneziaAgentDriver
-from orchestrator.application.drivers import DriverRegistry
 from orchestrator.application.ports import NodeGrant, NodeConnection
 
 
 class AgentGateway:
-    def __init__(self, nodes, store, api, drivers=None, policy=None):
+    def __init__(
+        self,
+        nodes,
+        store: Journal,
+        drivers: DriverRegistry,
+        lease_transports: LeaseRegistry,
+        resources: Resources,
+        boot_id: str,
+        policy=None,
+        telemetry=None,
+    ):
         from orchestrator.config.policy import RuntimePolicy
 
         self.policy = policy or RuntimePolicy()
+        self.telemetry = telemetry if telemetry is not None else NullObserver()
         if any(
             len(set(values)) != len(values)
             for values in (
@@ -25,10 +40,15 @@ class AgentGateway:
             raise ValueError("Duplicate node")
         self._nodes = {n.id: n for n in nodes}
         self.registry = None
-        self.store, self.api = store, api
-        self.drivers = drivers or DriverRegistry([AmneziaAgentDriver(api)])
+        self.store, self.resources = store, resources
+        self.lease_transports = lease_transports
+        self.boot_id = boot_id
+        self.drivers = drivers
         for node in nodes:
             self.drivers.for_node(node)
+
+    def close(self):
+        self.resources.close()
 
     @property
     def nodes(self):
@@ -52,6 +72,14 @@ class AgentGateway:
             raise OrchestratorError("assigned_node_disabled", 503)
         return node
 
+    @observed(
+        Stage.CREATE,
+        identity=lambda self, payload, **kw: (
+            kw.get("device_id") or payload["external_id"],
+            "create",
+        ),
+    )
+    @bounded
     def create(self, payload, *, protocol="amneziawg", device_id=None):
         if datetime.fromisoformat(payload["expires_at"].replace("Z", "+00:00")) <= datetime.now(
             timezone.utc
@@ -73,10 +101,17 @@ class AgentGateway:
                 except OrchestratorError:
                     return None
 
-            with ThreadPoolExecutor(max_workers=self.policy.selection.observation_workers) as pool:
-                observations = [value for value in pool.map(observe, nodes) if value is not None]
-            row = self.store.reserve(payload, observations, device_id, protocol)
-        with connection_lock(self.store, row["client_id"]):
+            with span(Stage.SELECT):
+                with ThreadPoolExecutor(
+                    max_workers=self.policy.selection.observation_workers
+                ) as pool:
+                    futures = [pool.submit(copy_context().run, observe, node) for node in nodes]
+                    observations = [
+                        value for future in futures if (value := future.result()) is not None
+                    ]
+                remaining()
+                row = self.store.reserve(payload, observations, device_id, protocol)
+        with self.store.lock(row["client_id"]):
             return self.create_reserved(self.store.get(client_id=row["client_id"]), payload)
 
     def create_reserved(self, row, payload):
@@ -107,6 +142,7 @@ class AgentGateway:
         self.store.bind(row, matches[0]["client_id"])
         return matches[0]["client_id"]
 
+    @observed(Stage.MUTATE)
     def invoke(self, row, operation, call):
         try:
             data = self.drivers.for_node(self.node(row)).validate(
@@ -130,8 +166,17 @@ class AgentGateway:
         if Switches(self).pending(row["client_id"]):
             raise OrchestratorError("switch_in_progress", 503)
 
+    @observed(
+        Stage.ACCESS,
+        identity=lambda self, client_id, operation="get", payload=None: (
+            client_id,
+            operation,
+            (payload or {}).get("idempotency_key", ""),
+        ),
+    )
+    @bounded
     def client(self, client_id, operation="get", payload=None):
-        with connection_lock(self.store, client_id):
+        with self.store.lock(client_id):
             try:
                 return self.client_locked(client_id, operation, payload)
             except OrchestratorError as error:
@@ -174,7 +219,9 @@ class AgentGateway:
         if operation in ("configuration", "amnezia"):
             if row["protocol"] != "amneziawg":
                 raise OrchestratorError("unsupported_format", 422)
-            return driver.legacy_export(node, remote_id, operation)
+            return driver.export(
+                node, remote_id, {"configuration": "conf", "amnezia": "amnezia-vpn"}[operation]
+            ).data
         return self.invoke(
             row,
             operation,
@@ -183,9 +230,11 @@ class AgentGateway:
             else driver.mutate(node, remote_id, operation, payload or {}),
         )
 
+    @observed(Stage.CONFIGURATION, identity=lambda self, client_id: (client_id, "configuration"))
+    @bounded
     def connection(self, client_id):
         """Read state and transport parameters under the same assignment lock."""
-        with connection_lock(self.store, client_id):
+        with self.store.lock(client_id):
             row = self.store.get(client_id=client_id)
             if row is None:
                 raise OrchestratorError("not_found", 404)
@@ -204,6 +253,7 @@ class AgentGateway:
             value = self.invoke(row, "configuration", fetch)
             return NodeConnection(value, snapshot.configuration)
 
+    @bounded
     def lookup(self, external_id):
         """Indexed identity lookup; missing assignments never contact VPN nodes."""
         row = self.store.get(external_id=external_id)
@@ -221,6 +271,7 @@ class AgentGateway:
             return {"clients": []}
         return {"clients": [client]}
 
+    @bounded
     def listing(self):
         result = []
         for row in self.store.rows():

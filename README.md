@@ -83,6 +83,7 @@ The detailed guides are currently in Russian.
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pytest -q
 .venv/bin/python scripts/check_contracts.py
+.venv/bin/python scripts/check_architecture.py
 .venv/bin/ruff check orchestrator scripts tests
 .venv/bin/ruff format --check orchestrator scripts tests
 ```

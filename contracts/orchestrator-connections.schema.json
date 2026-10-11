@@ -1,4 +1,85 @@
 {
+  "DeviceOperation": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      }
+    },
+    "required": [
+      "device_id"
+    ],
+    "title": "DeviceOperation",
+    "type": "object"
+  },
+  "RenewRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "expires_at": {
+        "title": "Expires At",
+        "type": "string"
+      },
+      "idempotency_key": {
+        "pattern": "^[A-Za-z0-9_:.+-]{1,160}$",
+        "title": "Idempotency Key",
+        "type": "string"
+      }
+    },
+    "required": [
+      "device_id",
+      "expires_at",
+      "idempotency_key"
+    ],
+    "title": "RenewRequest",
+    "type": "object"
+  },
+  "ReplaceRequest": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "device_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Device Id",
+        "type": "string"
+      },
+      "expires_at": {
+        "title": "Expires At",
+        "type": "string"
+      },
+      "idempotency_key": {
+        "pattern": "^[A-Za-z0-9_:.+-]{1,160}$",
+        "title": "Idempotency Key",
+        "type": "string"
+      },
+      "expected_external_id": {
+        "pattern": "^[A-Za-z0-9_-]{1,100}$",
+        "title": "Expected External Id",
+        "type": "string"
+      },
+      "allow_create": {
+        "default": true,
+        "title": "Allow Create",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "device_id",
+      "expires_at",
+      "idempotency_key",
+      "expected_external_id"
+    ],
+    "title": "ReplaceRequest",
+    "type": "object"
+  },
   "DeviceRequest": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$defs": {

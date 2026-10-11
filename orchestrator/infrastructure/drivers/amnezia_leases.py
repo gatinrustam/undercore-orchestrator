@@ -1,0 +1,69 @@
+"""Agent lease protocol translated to the protocol-neutral control lease port."""
+
+from orchestrator.infrastructure.drivers.amnezia_http import AgentAPI
+from datetime import datetime
+from orchestrator.domain.models import Node, OrchestratorError
+from orchestrator.domain.records import LeaseObservation, LeaseGrant
+
+
+class AmneziaLeaseTransport:
+    def __init__(self, api: AgentAPI) -> None:
+        self.api = api
+
+    def probe(self, node: Node) -> None:
+        health = self.api.request(node, "GET", "/v1/health")
+        self.api.validate_identity(node, health)
+        lease = health.get("control_lease")
+        if (
+            not isinstance(lease, dict)
+            or type(lease.get("version")) is not int
+            or lease["version"] != 1
+        ):
+            raise OrchestratorError("control_lease_unavailable", 409)
+
+    def observe(self, node: Node) -> LeaseObservation:
+        health = self.api.request(node, "GET", "/v1/health")
+        self.api.validate_identity(node, health)
+        try:
+            lease = health["control_lease"]
+            if type(lease["version"]) is not int or lease["version"] != 1:
+                raise ValueError()
+            required = lease.get("required", False)
+            controller = lease.get("controller_id")
+            sequence = lease.get("sequence", 0)
+            if (
+                type(required) is not bool
+                or type(sequence) is not int
+                or (controller is not None and not isinstance(controller, str))
+            ):
+                raise ValueError()
+            return LeaseObservation(
+                datetime.fromisoformat(lease["server_time"].replace("Z", "+00:00")).timestamp(),
+                required,
+                controller,
+                sequence,
+            )
+        except (KeyError, ValueError, TypeError, AttributeError):
+            raise OrchestratorError("control_lease_unavailable", 503) from None
+
+    def renew(self, node: Node, grant: LeaseGrant) -> None:
+        reply = self.api.request(
+            node,
+            "POST",
+            "/v1/control-lease",
+            {
+                "controller_id": grant.controller_id,
+                "sequence": grant.sequence,
+                "valid_until": grant.valid_until,
+            },
+        )
+        if (
+            not isinstance(reply, dict)
+            or reply.get("required") is not True
+            or reply.get("active") is not True
+            or reply.get("controller_id") != grant.controller_id
+            or type(reply.get("sequence")) is not int
+            or reply["sequence"] != grant.sequence
+            or reply.get("valid_until") != grant.valid_until
+        ):
+            raise OrchestratorError("control_lease_unconfirmed", 503)

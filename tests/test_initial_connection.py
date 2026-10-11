@@ -14,14 +14,14 @@ from orchestrator.config.policy import RuntimePolicy
 
 
 def spy(gateway):
-    original = gateway.api.transport
+    original = gateway.resources.transport
     calls = []
 
     def handle(request):
         calls.append((request.method, request.url.host, request.url.path))
         return original.handle_request(request)
 
-    gateway.api.transport = httpx.MockTransport(handle)
+    gateway.resources.transport = httpx.MockTransport(handle)
     return calls
 
 
@@ -87,7 +87,7 @@ def test_lookup_route_auth_validation_and_no_store(pilot):
 def test_observation_has_one_identity_check_and_one_list(pilot):
     gateway, *_ = pilot
     calls = spy(gateway)
-    gateway.api.observe(gateway.nodes["lab"])
+    gateway.resources.observe(gateway.nodes["lab"])
     assert [path for _, _, path in calls] == ["/v1/health", "/v1/clients"]
 
 
@@ -96,7 +96,7 @@ def test_identity_mismatch_stops_observation_before_list(pilot):
     state["identity"] = "wrong"
     calls = spy(gateway)
     with pytest.raises(OrchestratorError, match="node_identity_invalid"):
-        gateway.api.observe(gateway.nodes["lab"])
+        gateway.resources.observe(gateway.nodes["lab"])
     assert [path for _, _, path in calls] == ["/v1/health"]
 
 

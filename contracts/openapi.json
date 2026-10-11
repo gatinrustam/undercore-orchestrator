@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Undercore Orchestrator — backend API",
-    "version": "0.3.5",
+    "version": "0.4.0",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -35,6 +35,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -72,6 +79,15 @@
                   ]
                 }
               }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
+              }
             }
           }
         }
@@ -91,6 +107,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -128,6 +151,15 @@
                   ]
                 }
               }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
+              }
             }
           }
         }
@@ -147,6 +179,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -184,6 +223,15 @@
                   ]
                 }
               }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
+              }
             }
           }
         }
@@ -203,6 +251,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -238,6 +293,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -269,6 +333,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -304,6 +375,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -345,6 +425,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -380,6 +467,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -422,6 +518,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -457,6 +560,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -499,6 +611,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -534,6 +653,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -576,6 +704,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -611,6 +746,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -653,6 +797,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -688,6 +839,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -730,6 +890,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -765,6 +932,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -807,6 +983,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -842,6 +1025,15 @@
                       ]
                     }
                   ]
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
                 }
               }
             }
@@ -884,6 +1076,13 @@
                   "type": "string"
                 },
                 "description": "private, no-store"
+              },
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
               }
             },
             "content": {
@@ -921,6 +1120,15 @@
                   ]
                 }
               }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
+              }
             }
           }
         },
@@ -946,6 +1154,45 @@
           }
         }
       }
+    },
+    "/internal/v1/metrics": {
+      "get": {
+        "operationId": "metrics",
+        "summary": "Local operational metrics; no VPN node probes",
+        "responses": {
+          "200": {
+            "description": "Prometheus text exposition",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid backend token",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Server-generated correlation ID; caller input is not trusted",
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{32}$"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -956,6 +1203,84 @@
       }
     },
     "schemas": {
+      "DeviceOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "title": "DeviceOperation",
+        "type": "object"
+      },
+      "RenewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "pattern": "^[A-Za-z0-9_:.+-]{1,160}$",
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "expires_at",
+          "idempotency_key"
+        ],
+        "title": "RenewRequest",
+        "type": "object"
+      },
+      "ReplaceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "pattern": "^[A-Za-z0-9_:.+-]{1,160}$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "expected_external_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Expected External Id",
+            "type": "string"
+          },
+          "allow_create": {
+            "default": true,
+            "title": "Allow Create",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "device_id",
+          "expires_at",
+          "idempotency_key",
+          "expected_external_id"
+        ],
+        "title": "ReplaceRequest",
+        "type": "object"
+      },
       "Capability": {
         "additionalProperties": false,
         "properties": {
@@ -1472,73 +1797,6 @@
         },
         "required": [
           "detail"
-        ]
-      },
-      "DeviceOperation": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "device_id": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]{1,100}$"
-          }
-        },
-        "required": [
-          "device_id"
-        ]
-      },
-      "RenewRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "device_id": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]{1,100}$"
-          },
-          "expires_at": {
-            "title": "Expires At",
-            "type": "string"
-          },
-          "idempotency_key": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_:.+-]{1,160}$"
-          }
-        },
-        "required": [
-          "device_id",
-          "expires_at",
-          "idempotency_key"
-        ]
-      },
-      "ReplaceRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "device_id": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]{1,100}$"
-          },
-          "expires_at": {
-            "title": "Expires At",
-            "type": "string"
-          },
-          "idempotency_key": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_:.+-]{1,160}$"
-          },
-          "expected_external_id": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]{1,100}$"
-          },
-          "allow_create": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "device_id",
-          "expires_at",
-          "idempotency_key",
-          "expected_external_id"
         ]
       },
       "Health": {

@@ -2,7 +2,7 @@ from test_node_switch import pair  # noqa: F401
 import json
 import pytest
 from fastapi.testclient import TestClient
-from orchestrator.application.nodes import NodeRegistry
+from orchestrator.bootstrap import build_registry as NodeRegistry
 from orchestrator.config.settings import NodeSettings
 from orchestrator.interfaces.http.app import create_agent_app
 from orchestrator.domain.models import OrchestratorError

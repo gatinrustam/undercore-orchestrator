@@ -1,6 +1,7 @@
 # Участие в разработке
 
-Начните с [архитектуры](architecture.md) и [контракта API](api.md). Тесты не требуют
+Начните с [архитектуры](architecture.md), [гарантий жизненного цикла](lifecycle.md),
+[правил совместимости](compatibility.md) и [контракта API](api.md). Тесты не требуют
 настоящих серверов, соседнего закрытого репозитория или VPN-ключей.
 
 ```sh
@@ -9,6 +10,8 @@ python3 -m venv .venv
 .venv/bin/python -m pip install --no-deps .
 .venv/bin/python -m pytest -q
 .venv/bin/python scripts/check_contracts.py
+.venv/bin/python scripts/check_architecture.py
+.venv/bin/python -m mypy
 .venv/bin/ruff check orchestrator scripts tests
 .venv/bin/ruff format --check orchestrator scripts tests
 ```
@@ -25,12 +28,20 @@ CI выполняет эти проверки на Python 3.12/Linux и соби
 | Команды оператора | `orchestrator/interfaces/cli/` |
 | Выдача и восстановление | `orchestrator/application/` |
 | Протокольный драйвер | `orchestrator/infrastructure/drivers/` |
+| Интерфейсы журналов | `orchestrator/application/repository_ports.py` |
 | Хранение и транзакции | `orchestrator/infrastructure/sqlite/` |
-| Таймауты и конфигурация | `orchestrator/config/` |
+| Модели таймаутов и конфигурации | `orchestrator/config/` |
+| Загрузка конфигурации и секретов | `orchestrator/infrastructure/settings.py`, `credentials.py` |
+| Сборка реализаций | `orchestrator/bootstrap.py` |
 
 Корневые runtime/settings/assignments и другие короткие модули — совместимые
 импорты старых точек запуска. Новую реализацию добавляйте в соответствующий слой.
 Не удаляйте совместимость без описанного перехода.
+
+Проверка импортов использует contracts/architecture.json. Новые запрещённые
+зависимости и устаревшие исключения блокируют CI. Список исключений не обновляется
+автоматически; сейчас он пуст. Mypy проверяет типы на границах слоёв
+и соответствие реализаций портам; область проверки явно задана в pyproject.toml.
 
 ## Изменение контракта
 

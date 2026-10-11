@@ -21,3 +21,4 @@ segno==1.6.6
 cryptography==50.0.1
 cffi==2.1.1
 pycparser==3.0
+prometheus-client==0.26.0

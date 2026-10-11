@@ -1,3 +1,5 @@
+from orchestrator.interfaces.cli.node_input import load_node_input
+
 """Independent operation, durable inventory and deployment boundaries."""
 
 import json
@@ -10,8 +12,8 @@ from pydantic import ValidationError
 
 from orchestrator.bootstrap import agent_app, agent_service
 from orchestrator.config.policy import RuntimePolicy
-from orchestrator.config.settings import load_settings
-from orchestrator.config.validation import validate_configuration
+from orchestrator.bootstrap import load_settings
+from orchestrator.bootstrap import validate_configuration
 from orchestrator.domain.models import OrchestratorError
 from orchestrator.interfaces.cli.initialize import initialize
 from orchestrator.interfaces.cli import main as cli
@@ -94,6 +96,13 @@ def test_local_cli_edits_inventory_without_admin_http(pair, tmp_path, monkeypatc
     file.chmod(0o600)
     monkeypatch.setattr("orchestrator.bootstrap.agent_service", lambda: (gateway, "b" * 40))
     monkeypatch.setattr(cli, "load_settings", lambda _: SimpleNamespace())
+    from orchestrator.application.administration import Administration
+    from orchestrator.infrastructure.sqlite.administration import OperatorAudit
+
+    monkeypatch.setattr(
+        "orchestrator.bootstrap.administration_service",
+        lambda: Administration(lambda: gateway, OperatorAudit(tmp_path), None),
+    )
     assert cli.main(["update", "server", data["id"], "--file", str(file)]) == 0
     assert gateway.nodes[data["id"]].mode == "draining"
     assert json.loads(capsys.readouterr().out)["revision"] == 2
@@ -111,7 +120,7 @@ def test_local_add_cannot_overwrite_existing_node(pair, tmp_path):
     file.write_text(json.dumps(data))
     file.chmod(0o600)
     with pytest.raises(OrchestratorError, match="node_revision_conflict"):
-        manage_node(gateway, "add", file)
+        manage_node(gateway, "add", load_node_input(file))
 
 
 def test_systemd_lifecycle_controls_api_and_both_workers(monkeypatch):
@@ -174,7 +183,7 @@ def test_policy_reaches_http_and_recovery_runtime(tmp_path, monkeypatch):
     monkeypatch.setenv("ORCHESTRATOR_SETTINGS", str(file))
     gateway, _ = agent_service()
     assert Recovery(gateway).cooldown == 900
-    assert gateway.api.policy.connect_timeout_seconds == 6
+    assert gateway.resources.policy.connect_timeout_seconds == 6
 
 
 def test_architecture_domain_has_no_application_or_io_dependencies():

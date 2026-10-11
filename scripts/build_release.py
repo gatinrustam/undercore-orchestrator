@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import io
+import gzip
 import json
 import re
 import subprocess
@@ -56,17 +57,26 @@ def main():
             files[path] = git("show", commit + ":" + path)
     version = files["VERSION"].decode().strip()
     assert re.fullmatch(r"\d+\.\d+\.\d+", version)
+    storage = (
+        json.loads(files["contracts/storage.json"]) if "contracts/storage.json" in files else None
+    )
     metadata = {
         "version": version,
         "commit": commit,
         "journal_schema": 2,
         "files": {k: hashlib.sha256(v).hexdigest() for k, v in files.items()},
     }
+    if storage is not None:
+        metadata["storage"] = storage
     files["release.json"] = (json.dumps(metadata, indent=2) + "\n").encode()
     a.output.mkdir(parents=True, exist_ok=True)
     name = "undercore-orchestrator-v" + version + ".tar.gz"
     target = a.output / name
-    with tarfile.open(target, "w:gz") as tar:
+    with (
+        target.open("wb") as output,
+        gzip.GzipFile(filename="", mode="wb", fileobj=output, mtime=0) as compressed,
+        tarfile.open(fileobj=compressed, mode="w") as tar,
+    ):
         for path, data in sorted(files.items()):
             info = tarfile.TarInfo(path)
             info.size = len(data)

@@ -14,5 +14,16 @@
       "api_key_file": "/etc/vpn-orchestrator/node-a.token"
     }
   ],
-  "policy": {}
+  "policy": {
+    "agents": {
+      "operation_timeout_seconds": 30,
+      "queue_timeout_seconds": 2,
+      "max_concurrent_requests": 16,
+      "max_concurrent_per_node": 4,
+      "max_pending_requests": 64,
+      "max_pending_per_node": 8,
+      "connect_timeout_seconds": 4,
+      "response_timeout_seconds": 12
+    }
+  }
 }

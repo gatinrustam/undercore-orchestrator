@@ -1,4 +1,4 @@
-"""Validated runtime limits. Defaults preserve the deployed behaviour."""
+"""Validated runtime limits. Missing optional fields use conservative defaults."""
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -8,8 +8,30 @@ class PolicyModel(BaseModel):
 
 
 class AgentPolicy(PolicyModel):
+    operation_timeout_seconds: int = Field(default=30, ge=5, le=60)
+    queue_timeout_seconds: int = Field(default=2, ge=1, le=5)
+    max_concurrent_requests: int = Field(default=16, ge=2, le=64)
+    max_concurrent_per_node: int = Field(default=4, ge=1, le=32)
+    max_pending_per_node: int = Field(default=8, ge=1, le=64)
+    max_pending_requests: int = Field(default=64, ge=2, le=256)
     connect_timeout_seconds: int = Field(default=4, ge=1, le=10)
     response_timeout_seconds: int = Field(default=12, ge=1, le=15)
+
+    @model_validator(mode="after")
+    def concurrency_bounds(self):
+        if not self.max_concurrent_per_node < self.max_concurrent_requests:
+            raise ValueError("Per-node limit must leave room for another node")
+        if self.max_pending_requests < self.max_concurrent_requests:
+            raise ValueError("Pending limit must cover active requests")
+        if (
+            not self.max_concurrent_per_node
+            <= self.max_pending_per_node
+            < self.max_pending_requests
+        ):
+            raise ValueError(
+                "Per-node pending limit must cover its active limit and leave room for another node"
+            )
+        return self
 
 
 class RecoveryPolicy(PolicyModel):

@@ -1,9 +1,13 @@
+from contextlib import asynccontextmanager
 import json
 import re
 import secrets
 from datetime import datetime
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import ValidationError
+from orchestrator.domain.contracts import Renewal, Replacement
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from orchestrator.interfaces.http.observability import RequestObservability
 from starlette.concurrency import run_in_threadpool
 from orchestrator.domain.models import OrchestratorError
 
@@ -17,6 +21,12 @@ def validate(operation, payload):
         "enable": (set(), set()),
         "disable": (set(), set()),
     }
+    if operation in ("renew", "replace"):
+        try:
+            model = Renewal if operation == "renew" else Replacement
+            return model.model_validate(payload).model_dump(exclude_unset=True)
+        except ValidationError:
+            raise OrchestratorError("invalid_request", 422) from None
     required, optional = schemas[operation]
     if (
         not isinstance(payload, dict)
@@ -59,8 +69,20 @@ def validate(operation, payload):
 def create_agent_app(service, token):
     if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", token):
         raise ValueError("Invalid backend token")
+
+    @asynccontextmanager
+    async def lifespan(app):
+        try:
+            yield
+        finally:
+            await run_in_threadpool(service.close)
+
     app = FastAPI(
-        title="Undercore VPN orchestration", docs_url=None, redoc_url=None, openapi_url=None
+        title="Undercore VPN orchestration",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        lifespan=lifespan,
     )
 
     @app.middleware("http")
@@ -118,6 +140,15 @@ def create_agent_app(service, token):
             "contract_version": 2,
         }
 
+    @app.get("/internal/v1/metrics")
+    async def metrics():
+        try:
+            summary = await run_in_threadpool(service.store.diagnostic_counts)
+        except Exception:
+            summary = None
+        content, content_type = service.telemetry.render(summary)
+        return Response(content, headers={"Content-Type": content_type})
+
     @app.get("/internal/v1/nodes")
     async def nodes():
         return await run_in_threadpool(service.overview)
@@ -160,5 +191,6 @@ def create_agent_app(service, token):
 
     from orchestrator.interfaces.http.connections import mount
 
-    mount(app, service, validate)
+    mount(app, service)
+    app.add_middleware(RequestObservability, observer=service.telemetry)
     return app

@@ -39,6 +39,31 @@ class Capability(Contract):
     configuration_version: int = Field(ge=1, le=65535)
 
 
+OperationKey = Annotated[str, Field(pattern=r"^[A-Za-z0-9_:.+-]{1,160}$")]
+
+
+class DeviceOperation(Contract):
+    device_id: Identifier
+
+
+class Renewal(Contract):
+    expires_at: Timestamp
+    idempotency_key: OperationKey
+
+
+class Replacement(Renewal):
+    expected_external_id: Identifier
+    allow_create: bool = True
+
+
+class RenewRequest(Renewal, DeviceOperation):
+    pass
+
+
+class ReplaceRequest(Replacement, DeviceOperation):
+    pass
+
+
 class ClientCapabilities(Contract):
     schema_version: VersionOne
     capabilities: list[Capability] = Field(min_length=1, max_length=8)
@@ -144,6 +169,9 @@ def schemas():
             **model.model_json_schema(),
         }
         for model in (
+            DeviceOperation,
+            RenewRequest,
+            ReplaceRequest,
             DeviceRequest,
             ConfigurationRequest,
             ExportRequest,

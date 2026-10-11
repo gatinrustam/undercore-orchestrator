@@ -7,7 +7,9 @@ import re
 from urllib.parse import urlsplit
 import httpx
 from orchestrator.domain.models import OrchestratorError
-from orchestrator.config.settings import load_settings, read_secret
+from orchestrator.bootstrap import load_settings
+from orchestrator.infrastructure.secrets import read_secret
+from orchestrator.interfaces.cli.node_input import load_node_input
 
 CAPABILITIES = [{"protocol": "amneziawg", "configuration_version": 1}]
 
@@ -96,6 +98,15 @@ def parser():
     sub = p.add_subparsers(dest="command", required=True)
     backup = sub.add_parser("backup")
     backup.add_argument("--output", required=True)
+    panel = sub.add_parser("panel")
+    panel.add_argument("--token-file", required=True)
+    panel.add_argument("--port", type=int, default=8793)
+    panel.add_argument("--manage", action="store_true", help="Enable audited operator commands")
+    operator = sub.add_parser("operator").add_subparsers(dest="operator_action", required=True)
+    execute = operator.add_parser("execute")
+    execute.add_argument("--file", required=True)
+    operator.add_parser("policy")
+    operator.add_parser("audit")
     init = sub.add_parser("init")
     init.add_argument("--directory", required=True)
     init.add_argument("--state-directory")
@@ -107,6 +118,10 @@ def parser():
     config_check.add_argument("--probe", action="store_true")
     for verb in ("add", "update", "check", "restore", "list"):
         kind = sub.add_parser(verb).add_subparsers(dest="resource", required=True)
+        if verb == "restore":
+            restore = kind.add_parser("backup")
+            restore.add_argument("--input", required=True)
+            restore.add_argument("--output", required=True)
         server = kind.add_parser("servers" if verb == "list" else "server")
         if verb in ("add", "update"):
             server.add_argument("--file", required=True)
@@ -145,10 +160,38 @@ def parser():
 
 def run(args):
     os.environ["ORCHESTRATOR_SETTINGS"] = args.settings
+    if args.command == "panel":
+        from orchestrator.bootstrap import panel_app
+        import uvicorn
+
+        if not 1024 <= args.port <= 65535:
+            raise ValueError("Invalid panel port")
+        uvicorn.run(
+            panel_app(args.token_file, args.port, args.manage),
+            host="127.0.0.1",
+            port=args.port,
+            access_log=False,
+            proxy_headers=False,
+        )
+        return None
+    if args.command == "operator":
+        from orchestrator.bootstrap import administration_service
+        from orchestrator.domain.administration import Command
+
+        admin = administration_service()
+        if args.operator_action == "policy":
+            return admin.policies.read()
+        if args.operator_action == "audit":
+            return {"entries": admin.journal.recent()}
+        return admin.execute(Command.model_validate_json(read_secret(args.file)), "cli")
     if args.command == "backup":
         from orchestrator.interfaces.cli.backup import backup
 
         return backup(args.settings, args.output)
+    if args.command == "restore" and args.resource == "backup":
+        from orchestrator.interfaces.cli.backup import restore_backup
+
+        return restore_backup(args.input, args.output)
     if args.command == "init":
         from orchestrator.interfaces.cli.initialize import initialize
 
@@ -171,7 +214,7 @@ def run(args):
         }[verb]
 
     if args.command == "check-config":
-        from orchestrator.config.validation import validate_configuration
+        from orchestrator.bootstrap import validate_configuration
 
         return validate_configuration(args.settings, args.structure_only, args.probe)
     if args.command == "serve":
@@ -191,18 +234,44 @@ def run(args):
         from orchestrator.application.recovery import reconcile
 
         service, _ = agent_service()
-        return reconcile(service)
+        try:
+            return reconcile(service)
+        finally:
+            service.close()
     settings = load_settings(args.settings)
     if args.command == "node":
         from orchestrator.bootstrap import agent_service
         from orchestrator.application.management import manage_node
 
-        service, _ = agent_service()
-        return manage_node(
-            service,
-            args.node_operation,
-            getattr(args, "file", None),
-            getattr(args, "node_id", None),
+        if args.node_operation == "list":
+            service, _ = agent_service()
+            try:
+                return manage_node(service, "list")
+            finally:
+                service.close()
+        from orchestrator.bootstrap import administration_service
+        from orchestrator.domain.administration import Command
+        import uuid
+
+        data = load_node_input(getattr(args, "file", None)) or {}
+        target = getattr(args, "node_id", None) or data.get("id")
+        if args.node_operation == "add":
+            if data.get("expected_revision", 0) != 0:
+                raise OrchestratorError("invalid_request", 422)
+            data["expected_revision"] = 0
+        if args.node_operation == "update" and (
+            data.get("id") != target
+            or type(data.get("expected_revision")) is not int
+            or data["expected_revision"] < 1
+        ):
+            raise OrchestratorError("invalid_request", 422)
+        action = (
+            "node.save"
+            if args.node_operation in ("add", "update", "save")
+            else "node." + args.node_operation
+        )
+        return administration_service().execute(
+            Command(operation_id=uuid.uuid4().hex, action=action, target=target, data=data), "cli"
         )
     token = read_secret(settings.backend_token_file).decode()
     if args.command in ("health", "nodes"):

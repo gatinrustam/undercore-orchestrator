@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from orchestrator.application.gateway import AgentGateway
+from orchestrator.bootstrap import build_gateway as AgentGateway
 from orchestrator.interfaces.http.app import create_agent_app
 from orchestrator.infrastructure.sqlite.assignments import Assignments
 from orchestrator.application.connections import Connections
@@ -92,7 +92,7 @@ def test_lost_response_and_concurrency_survive_v2_restart(pilot):
     with pytest.raises(OrchestratorError):
         Connections(gateway).create(value)
     restarted = AgentGateway(
-        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.api
+        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.resources
     )
     with ThreadPoolExecutor(max_workers=3) as pool:
         results = list(pool.map(lambda _: Connections(restarted).create(value), range(3)))
@@ -150,7 +150,7 @@ def test_revision_stable_on_repeat_restart_and_changes_without_storing_keys(pilo
     query = ConfigurationRequest.model_validate(config_request(body))
     first = Connections(gateway).configuration(ident, query)
     restarted = AgentGateway(
-        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.api
+        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.resources
     )
     assert Connections(restarted).configuration(ident, query).revision == first.revision == 1
     engine.backend.config["endpoint"] = "192.0.2.99:8443"
@@ -271,8 +271,10 @@ def test_trusttunnel_test_double_uses_same_contract_without_awg_parsing(pilot):
     node = Node(
         "tt", "https://tt.example.test", "tt-identity", "nl", 5, "t" * 40, protocol="trusttunnel"
     )
-    registry = DriverRegistry([AmneziaAgentDriver(gateway.api), tt])
-    gateway = AgentGateway([*gateway.nodes.values(), node], gateway.store, gateway.api, registry)
+    registry = DriverRegistry([AmneziaAgentDriver(gateway.resources), tt])
+    gateway = AgentGateway(
+        [*gateway.nodes.values(), node], gateway.store, gateway.resources, registry
+    )
     service = Connections(gateway)
     result = service.create(DeviceRequest.model_validate(request(body, [TT])))
     exported = service.configuration(
@@ -356,7 +358,7 @@ def test_disable_and_expiry_are_still_enforced_after_restart(pilot):
     with engine.store.db() as db:
         db.execute("UPDATE clients SET expires_at=?", (stamp(now() - timedelta(seconds=1)),))
     restarted = AgentGateway(
-        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.api
+        list(gateway.nodes.values()), Assignments(gateway.store.path.parent), gateway.resources
     )
     with pytest.raises(OrchestratorError, match="access_unavailable"):
         Connections(restarted).configuration(
@@ -380,7 +382,7 @@ def test_legacy_runtime_cannot_enable_trusttunnel_by_setting_only(pilot):
     gateway, _, _, _ = pilot
     node = replace(next(iter(gateway.nodes.values())), protocol="trusttunnel")
     with pytest.raises(OrchestratorError, match="unsupported_protocol"):
-        AgentGateway([node], gateway.store, gateway.api)
+        AgentGateway([node], gateway.store, gateway.resources)
 
 
 def test_protocol_payload_limits_and_dates_are_validated():

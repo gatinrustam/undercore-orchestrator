@@ -8,4 +8,7 @@ if __name__ == "__main__":
     from orchestrator.application.leases import heartbeat_all
 
     service, _ = agent_service()
-    print(json.dumps(heartbeat_all(service)))
+    try:
+        print(json.dumps(heartbeat_all(service)))
+    finally:
+        service.close()

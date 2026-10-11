@@ -52,6 +52,7 @@ def test_documented_route_coverage_and_no_live_swagger(pilot):
         if route.path.startswith("/internal/v2/") or route.path in (
             "/v1/health",
             "/internal/v1/nodes",
+            "/internal/v1/metrics",
         ):
             for method in route.methods:
                 if "{operation}" in route.path:

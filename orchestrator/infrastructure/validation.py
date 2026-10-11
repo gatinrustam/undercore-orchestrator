@@ -1,14 +1,11 @@
 """Read-only configuration and pinned identity checks."""
 
 from pathlib import Path
-from orchestrator.config.settings import load_settings
+from orchestrator.infrastructure.secrets import read_secret
 from orchestrator.infrastructure.sqlite.inventory import read_inventory
 
 
-def validate_configuration(path, structure_only=False, probe=False):
-    settings = load_settings(path, secrets=not structure_only)
-    if probe and structure_only:
-        raise ValueError("Probe requires credentials")
+def inspect_configuration(settings, structure_only=False):
     saved_inventory = read_inventory(Path(settings.state_directory) / "assignments.sqlite3")
     nodes = {n.id: n for n in (saved_inventory if saved_inventory is not None else settings.nodes)}
     # Check pinned assignments without opening a writer or initializing a journal.
@@ -20,7 +17,7 @@ def validate_configuration(path, structure_only=False, probe=False):
             nodes = {n.id: n for n in settings.nodes}
             with sqlite3.connect(journal.as_uri() + "?mode=ro", uri=True) as db:
                 if db.execute("SELECT 1 FROM sqlite_master WHERE name='node_registry'").fetchone():
-                    from orchestrator.config.settings import NodeSettings
+                    from orchestrator.domain.inventory import NodeSettings
 
                     saved = [
                         NodeSettings.model_validate_json(r[0])
@@ -28,7 +25,7 @@ def validate_configuration(path, structure_only=False, probe=False):
                     ]
                     nodes = {n.id: n for n in saved}
                     for n in saved:
-                        n.node()
+                        n.node(read_secret(n.api_key_file).decode())
                 for node_id, server_id, protocol in db.execute(
                     "SELECT node_id,server_id,protocol FROM assignments"
                 ):
@@ -42,9 +39,4 @@ def validate_configuration(path, structure_only=False, probe=False):
                 ):
                     if node_id not in nodes or nodes[node_id].server_id != server_id:
                         raise ValueError("Configuration removes or changes a pending target")
-    if probe:
-        from orchestrator.infrastructure.drivers.amnezia_http import AgentAPI
-
-        for node in nodes.values():
-            AgentAPI().verify(node.node())
-    return {"valid": True, "nodes": len(nodes), "secrets_checked": not structure_only}
+    return settings, list(nodes.values())

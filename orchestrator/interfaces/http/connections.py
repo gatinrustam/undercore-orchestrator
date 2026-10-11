@@ -1,11 +1,13 @@
 """Internal-only v2 routes share the existing Bearer/no-store boundary."""
 
 import json
-import re
 from fastapi import Request
 from pydantic import ValidationError
 from orchestrator.application.connections import Connections
 from orchestrator.domain.contracts import (
+    DeviceOperation,
+    RenewRequest,
+    ReplaceRequest,
     ConfigurationRequest,
     ExportRequest,
     DeviceRequest,
@@ -38,7 +40,7 @@ async def decode(request, model):
         raise OrchestratorError("invalid_request", 422) from None
 
 
-def mount(app, gateway, validate_legacy_operation):
+def mount(app, gateway):
     from starlette.concurrency import run_in_threadpool
 
     service = Connections(gateway)
@@ -88,12 +90,15 @@ def mount(app, gateway, validate_legacy_operation):
     async def mutate(connection_id: str, operation: str, request: Request):
         if operation not in ("renew", "replace", "enable", "disable"):
             raise OrchestratorError("not_found", 404)
-        data = await json_body(request)
-        device_id = data.pop("device_id", None)
-        if not isinstance(device_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", device_id):
-            raise OrchestratorError("invalid_request", 422)
-        payload = validate_legacy_operation(operation, data)
+        model = {
+            "renew": RenewRequest,
+            "replace": ReplaceRequest,
+            "enable": DeviceOperation,
+            "disable": DeviceOperation,
+        }[operation]
+        value = await decode(request, model)
+        payload = value.model_dump(exclude={"device_id"}, exclude_unset=True)
         result = await run_in_threadpool(
-            service.mutate, connection_id, device_id, operation, payload
+            service.mutate, connection_id, value.device_id, operation, payload
         )
         return result.model_dump()

@@ -76,6 +76,11 @@
       422
     ]
   },
+  "invalid_policy": {
+    "http_statuses": [
+      422
+    ]
+  },
   "invalid_request": {
     "http_statuses": [
       422
@@ -180,9 +185,25 @@
       503
     ]
   },
+  "operator_operation_conflict": {
+    "http_statuses": [
+      409
+    ]
+  },
+  "operator_review_required": {
+    "http_statuses": [
+      409,
+      503
+    ]
+  },
   "orchestrator_unavailable": {
     "http_statuses": [
       503
+    ]
+  },
+  "policy_revision_conflict": {
+    "http_statuses": [
+      409
     ]
   },
   "qr_unavailable": {
